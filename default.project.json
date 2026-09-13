@@ -1,0 +1,14 @@
+{
+  "name": "collect-burst",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "CollectBurst": { "$path": "src/CollectBurst.luau" }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Demo": { "$path": "src/Demo.client.luau" }
+      }
+    }
+  }
+}
