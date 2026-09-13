@@ -1,12 +1,43 @@
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local CollectBurst = require(ReplicatedStorage:WaitForChild("CollectBurst"))
 
 local GOLD = Color3.fromRGB(255, 196, 40)
-local ORE_AT = Vector3.new(0, 2.5, -14)
+local ORE_AT = Vector3.new(0, 0, -14)
+local ORE_VALUE = 30
+
+-- your assets go in ReplicatedStorage.CollectBurstAssets, all optional:
+--   Rock (Model or MeshPart), Gem (Model or MeshPart), Chunk (a BasePart for the rubble),
+--   Pickup and Break (Sounds), Icon (a Decal, its texture is used for the counter and flying pieces)
+local assets = ReplicatedStorage:FindFirstChild("CollectBurstAssets")
+local function asset(name)
+	return assets and assets:FindFirstChild(name)
+end
+
+local pickup = asset("Pickup")
+if not pickup then
+	pickup = Instance.new("Sound")
+	pickup.SoundId = "rbxasset://sounds/volume_slider.ogg"
+	pickup.Volume = 0.5
+end
+local iconImage = asset("Icon") and asset("Icon").Texture
+
+local function play(sound, speed)
+	if not sound then
+		return
+	end
+	local s = sound:Clone()
+	s.PlaybackSpeed = speed
+	s.Parent = SoundService
+	s:Play()
+	Debris:AddItem(s, 3)
+end
 
 -- counter in the top right
 local gui = Instance.new("ScreenGui")
@@ -24,15 +55,28 @@ counter.BackgroundTransparency = 0.2
 counter.Parent = gui
 Instance.new("UICorner", counter).CornerRadius = UDim.new(0, 12)
 local scale = Instance.new("UIScale", counter)
+local rim = Instance.new("UIStroke", counter)
+rim.Color = GOLD
+rim.Thickness = 2
+rim.Transparency = 1
 
-local icon = Instance.new("Frame")
+local icon
+if iconImage then
+	icon = Instance.new("ImageLabel")
+	icon.Image = iconImage
+	icon.BackgroundTransparency = 1
+	icon.Size = UDim2.fromOffset(30, 30)
+else
+	icon = Instance.new("Frame")
+	icon.Rotation = 45
+	icon.BackgroundColor3 = GOLD
+	icon.BorderSizePixel = 0
+	icon.Size = UDim2.fromOffset(20, 20)
+end
 icon.AnchorPoint = Vector2.new(0.5, 0.5)
 icon.Position = UDim2.new(0, 28, 0.5, 0)
-icon.Size = UDim2.fromOffset(20, 20)
-icon.Rotation = 45
-icon.BackgroundColor3 = GOLD
-icon.BorderSizePixel = 0
 icon.Parent = counter
+local restRotation = icon.Rotation
 
 local label = Instance.new("TextLabel")
 label.BackgroundTransparency = 1
@@ -45,29 +89,84 @@ label.TextXAlignment = Enum.TextXAlignment.Left
 label.Text = "0"
 label.Parent = counter
 
-local gold = 0
-local pop = TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+-- "+30" under the counter, counts up as the gems land then floats off
+local POPUP_AT = UDim2.new(1, -24, 0, 126)
+local popup = Instance.new("TextLabel")
+popup.AnchorPoint = Vector2.new(1, 0)
+popup.Position = POPUP_AT
+popup.Size = UDim2.fromOffset(150, 30)
+popup.BackgroundTransparency = 1
+popup.Font = Enum.Font.GothamBlack
+popup.TextSize = 26
+popup.TextColor3 = GOLD
+popup.TextXAlignment = Enum.TextXAlignment.Right
+popup.TextTransparency = 1
+popup.Text = ""
+popup.Parent = gui
+local popupStroke = Instance.new("UIStroke", popup)
+popupStroke.Thickness = 2
+popupStroke.Transparency = 1
+local popupScale = Instance.new("UIScale", popup)
 
-local function arrive()
-	gold += 1
-	label.Text = tostring(gold)
-	scale.Scale = 1.25
-	TweenService:Create(scale, pop, { Scale = 1 }):Play()
+local gold, shown, haul = 0, 0, 0
+local fades = {}
+local back = TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+-- the number rolls up to the real total instead of jumping
+RunService.RenderStepped:Connect(function(dt)
+	shown += (gold - shown) * math.min(1, dt * 14)
+	if math.abs(gold - shown) < 0.5 then
+		shown = gold
+	end
+	label.Text = tostring(math.round(shown))
+end)
+
+local function arrive(worth, n, total)
+	gold += worth
+	scale.Scale = 1.08 + 0.02 * worth
+	TweenService:Create(scale, back, { Scale = 1 }):Play()
+	icon.Rotation = restRotation + 8 * worth
+	TweenService:Create(icon, back, { Rotation = restRotation }):Play()
+	rim.Transparency = 0.2
+	TweenService:Create(rim, TweenInfo.new(0.3), { Transparency = 1 }):Play()
+	-- pitch climbs as the haul comes in
+	play(pickup, 0.9 + 0.6 * n / total)
+
+	for _, t in fades do
+		t:Cancel()
+	end
+	table.clear(fades)
+	if n == 1 then
+		haul = 0
+	end
+	haul += worth
+	popup.Text = "+" .. haul
+	popup.Position = POPUP_AT
+	popup.TextTransparency = 0
+	popupStroke.Transparency = 0
+	popupScale.Scale = 1.2
+	TweenService:Create(popupScale, back, { Scale = 1 }):Play()
+	if n == total then
+		local out = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 0.4)
+		fades = {
+			TweenService:Create(popup, out, { Position = POPUP_AT - UDim2.fromOffset(0, 24), TextTransparency = 1 }),
+			TweenService:Create(popupStroke, out, { Transparency = 1 }),
+		}
+		for _, t in fades do
+			t:Play()
+		end
+	end
 end
 
--- a grey rock with gold stuck to its sides and top
-local function spawnOre()
+-- stand-in rock until there's a real one in CollectBurstAssets
+local function placeholderRock()
 	local ore = Instance.new("Model")
-	ore.Name = "Ore"
 	local rock = Instance.new("Part")
-	rock.Anchored = true
 	rock.Size = Vector3.new(4, 3.5, 4)
 	rock.Material = Enum.Material.Slate
 	rock.Color = Color3.fromRGB(95, 90, 88)
-	rock.CFrame = CFrame.new(ORE_AT) * CFrame.Angles(0, math.random() * math.pi, 0)
 	rock.Parent = ore
 	ore.PrimaryPart = rock
-
 	local half = rock.Size / 2
 	for _ = 1, 6 do
 		local r = function(k)
@@ -80,16 +179,25 @@ local function spawnOre()
 			elseif side <= 2 then Vector3.new(half.X * s, r(half.Y * 0.6), r(half.Z * 0.7))
 			else Vector3.new(r(half.X * 0.7), r(half.Y * 0.6), half.Z * s)
 		local chunk = Instance.new("Part")
-		chunk.Anchored = true
 		chunk.CanCollide = false
 		chunk.Size = Vector3.one * (0.6 + math.random() * 0.5)
 		chunk.Material = Enum.Material.Neon
 		chunk.Color = GOLD
-		chunk.CFrame = rock.CFrame * CFrame.new(o) * CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6)
+		chunk.CFrame = CFrame.new(o) * CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6)
 		chunk.Parent = ore
 	end
+	return ore
+end
 
+local function spawnOre()
+	local ore = CollectBurst.asModel(asset("Rock") or placeholderRock())
+	ore.Name = "Ore"
+	ore:PivotTo(CFrame.new(ORE_AT) * CFrame.Angles(0, math.random() * math.pi, 0))
+	-- sit it on the ground whatever shape it is
+	local cf, size = ore:GetBoundingBox()
+	ore:PivotTo(ore:GetPivot() + Vector3.new(0, ORE_AT.Y - (cf.Position.Y - size.Y / 2), 0))
 	ore.Parent = workspace
+	CollectBurst.popIn(ore)
 	return ore
 end
 
@@ -106,13 +214,21 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	local hit = workspace:Raycast(ray.Origin, ray.Direction * 200)
 	if hit and hit.Instance:IsDescendantOf(ore) then
 		busy = true
-		local at = ore:GetPivot().Position
-		local broken = ore
-		CollectBurst.crack(broken, function()
-			broken:Destroy()
-			CollectBurst.shake(2, 0.3)
-			CollectBurst.burst(at + Vector3.new(0, 1, 0), 14, GOLD, icon, arrive)
-			task.delay(1.2, function()
+		local at = ore:GetBoundingBox().Position
+		play(asset("Break"), 1)
+		CollectBurst.crumble(ore, asset("Chunk"), function()
+			CollectBurst.drop(at, ORE_VALUE, {
+				target = icon,
+				color = GOLD,
+				gem = asset("Gem"),
+				icon = iconImage,
+				collector = function()
+					local character = Players.LocalPlayer.Character
+					return character and character:FindFirstChild("HumanoidRootPart")
+				end,
+				onArrive = arrive,
+			})
+			task.delay(2.5, function()
 				ore = spawnOre()
 				busy = false
 			end)
