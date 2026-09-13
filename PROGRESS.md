@@ -25,3 +25,9 @@ threw the explosion out, it wasn't satisfying. now the rock crumbles into rubble
 swapped the cubes for proper models off the creator store. dark low poly rock with bits of ore in it, purple cut gems in 3 sizes, and the rubble is random rocks out of a 49 piece rock pack so no two breaks look the same. the counter icon and the bits flying into it are the actual gem now, rendered in 3D. store models come in at any size (the gem was 23 studs across) so everything gets scaled to fit. one free nugget model i tried had hidden scripts in it, so that one's gone
 
 <img src="progress/04-real-assets.gif" width="720" alt="the ore rock crumbling and purple gems bouncing into the counter">
+
+### 05 · scanned rock, real crystals
+
+the store models looked cheap so i rebuilt everything. first try was a rock made from maths in blender and it looked like play dough in game. now the rock is a real photogrammetry scan (boulder 01 off poly haven, cc0) cut down to 16.5k tris with its scanned textures, and the amethyst is modelled from scratch: tapered six sided crystals with growth ridges and bevelled edges, a bed of little ones round the base, dark violet at the tips. gems sparkle when they land and bob while they wait. also fixed the whole rock being tipped 90 degrees, blender's Z-up leaves the pivot rotated when you import
+
+<img src="progress/05-scanned-rock.gif" width="720" alt="the scanned rock with amethyst crystals breaking into gems">

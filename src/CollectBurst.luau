@@ -194,6 +194,25 @@ local function addTrail(part, color)
 	return trail
 end
 
+-- a little glint when a gem hits the ground. roblox ships this texture so there's nothing to upload
+local function addSparkle(part, color)
+	local a = Instance.new("Attachment")
+	a.Parent = part
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	e.Color = ColorSequence.new(Color3.new(1, 1, 1), color)
+	e.LightEmission = 1
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
+	e.Transparency = NumberSequence.new(0, 1)
+	e.Lifetime = NumberRange.new(0.25, 0.45)
+	e.Speed = NumberRange.new(3, 7)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Drag = 6
+	e.Rate = 0
+	e.Parent = a
+	return e
+end
+
 -- `value` worth of gems pop out of `origin`, bounce on the ground, then get pulled into whatever
 -- `opts.collector()` returns (usually the player's root part). when a gem reaches it, it jumps onto
 -- the screen and flies into `opts.target` (a GuiObject).
@@ -225,12 +244,13 @@ function CollectBurst.drop(origin, value, opts)
 			worth = worth,
 			r = size.Y / 2,
 			trail = addTrail(model.PrimaryPart, opts.color),
+			sparkle = addSparkle(model.PrimaryPart, opts.color),
 			pos = origin,
 			vel = Vector3.new((math.random() - 0.5) * 22, 20 + math.random() * 12, (math.random() - 0.5) * 22),
 			spin = 2 + math.random() * 3,
 			age = 0,
 			-- they sit on the ground for a beat, then get pulled in one after another
-			magnetAt = 0.8 + i * 0.04,
+			magnetAt = 0.95 + i * 0.04,
 			speed = 0,
 		})
 	end
@@ -273,8 +293,16 @@ function CollectBurst.drop(origin, value, opts)
 				g.pos += step
 				if hit and g.pos.Y - g.r < hit.Position.Y then
 					g.pos = Vector3.new(g.pos.X, hit.Position.Y + g.r, g.pos.Z)
-					local up = math.abs(g.vel.Y) * 0.4
+					local impact = math.abs(g.vel.Y)
+					-- harder landings throw more sparkles, resting on the ground throws none
+					if impact > 12 then
+						g.sparkle:Emit(math.clamp(math.floor(impact / 5), 2, 8))
+					end
+					local up = impact * 0.4
 					g.vel = Vector3.new(g.vel.X * 0.55, if up < 4 then 0 else up, g.vel.Z * 0.55)
+					if up < 4 and not g.landedAt then
+						g.landedAt = g.age
+					end
 				end
 			else
 				-- magnet: speeds up towards you
@@ -317,7 +345,9 @@ function CollectBurst.drop(origin, value, opts)
 			end
 
 			if g.model then
-				g.model:PivotTo(CFrame.new(g.pos) * CFrame.Angles(0, g.age * g.spin, 0.35))
+				-- once it's settled it floats up off the ground and bobs until it gets pulled in
+				local bob = if g.landedAt and not g.trail.Enabled then 0.15 * (1 - math.cos((g.age - g.landedAt) * 7)) else 0
+				g.model:PivotTo(CFrame.new(g.pos + Vector3.new(0, bob, 0)) * CFrame.Angles(0, g.age * g.spin, 0.35))
 			end
 		end
 		if alive == 0 then
