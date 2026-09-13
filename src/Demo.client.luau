@@ -107,11 +107,15 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if hit and hit.Instance:IsDescendantOf(ore) then
 		busy = true
 		local at = ore:GetPivot().Position
-		ore:Destroy()
-		CollectBurst.burst(at + Vector3.new(0, 1, 0), 14, GOLD, icon, arrive)
-		task.delay(1.2, function()
-			ore = spawnOre()
-			busy = false
+		local broken = ore
+		CollectBurst.crack(broken, function()
+			broken:Destroy()
+			CollectBurst.shake(2, 0.3)
+			CollectBurst.burst(at + Vector3.new(0, 1, 0), 14, GOLD, icon, arrive)
+			task.delay(1.2, function()
+				ore = spawnOre()
+				busy = false
+			end)
 		end)
 	end
 end)

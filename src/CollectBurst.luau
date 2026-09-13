@@ -1,13 +1,58 @@
 local GuiService = game:GetService("GuiService")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local CollectBurst = {}
 
 local GRAVITY = Vector3.new(0, -60, 0)
+local CRACK_TIME = 0.18
 
 local function bezier(a, b, c, t)
 	local u = 1 - t
 	return a * (u * u) + b * (2 * u * t) + c * (t * t)
+end
+
+-- shakes and swells `model` for a split second while it goes white, then calls `onBreak`.
+-- that little wind-up before the burst is most of what makes it feel heavy
+function CollectBurst.crack(model, onBreak)
+	local pivot = model:GetPivot()
+	local flash = Instance.new("Highlight")
+	flash.FillColor = Color3.new(1, 1, 1)
+	flash.FillTransparency = 1
+	flash.OutlineTransparency = 1
+	flash.DepthMode = Enum.HighlightDepthMode.Occluded
+	flash.Parent = model
+
+	local t = 0
+	local conn
+	conn = RunService.RenderStepped:Connect(function(dt)
+		t += dt
+		local k = math.min(t / CRACK_TIME, 1)
+		local j = 0.3 * k
+		model:ScaleTo(1 + 0.12 * k)
+		model:PivotTo(pivot * CFrame.new((math.random() - 0.5) * j, (math.random() - 0.5) * j, (math.random() - 0.5) * j))
+		flash.FillTransparency = 1 - 0.85 * k
+		if k >= 1 then
+			conn:Disconnect()
+			onBreak()
+		end
+	end)
+end
+
+-- a short camera kick that fades out. strength is in degrees
+function CollectBurst.shake(strength, duration)
+	local t = 0
+	local name = "CollectBurstShake" .. math.random(1e9)
+	RunService:BindToRenderStep(name, Enum.RenderPriority.Camera.Value + 1, function(dt)
+		t += dt
+		local k = 1 - t / duration
+		if k <= 0 then
+			RunService:UnbindFromRenderStep(name)
+			return
+		end
+		local a = strength * k * k
+		workspace.CurrentCamera.CFrame *= CFrame.Angles(math.rad((math.random() - 0.5) * a), math.rad((math.random() - 0.5) * a), 0)
+	end)
 end
 
 -- `count` pieces pop out of `origin` in the world, hang there for a moment, then fly across the screen
@@ -16,6 +61,27 @@ function CollectBurst.burst(origin, count, color, target, onArrive)
 	local camera = workspace.CurrentCamera
 	local gui = target:FindFirstAncestorOfClass("ScreenGui")
 	local inset = if gui.IgnoreGuiInset then Vector2.zero else GuiService:GetGuiInset()
+
+	-- white puff where it broke
+	local puff = Instance.new("Part")
+	puff.Shape = Enum.PartType.Ball
+	puff.Anchored = true
+	puff.CanCollide = false
+	puff.CanQuery = false
+	puff.CanTouch = false
+	puff.Material = Enum.Material.Neon
+	puff.Color = Color3.new(1, 1, 1)
+	puff.Size = Vector3.one * 2
+	puff.Position = origin
+	puff.Parent = workspace
+	local grow = TweenService:Create(puff, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = Vector3.one * 7,
+		Transparency = 1,
+	})
+	grow.Completed:Connect(function()
+		puff:Destroy()
+	end)
+	grow:Play()
 
 	local pieces = {}
 	for _ = 1, count do
