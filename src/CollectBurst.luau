@@ -8,7 +8,8 @@ local GRAVITY = Vector3.new(0, -80, 0)
 local GEM_SIZE = 1.2
 -- how big a gem is by what it's worth
 local WORTH_SCALE = { [1] = 0.75, [2] = 1, [5] = 1.35 }
-local ICON_PX = { [1] = 22, [2] = 28, [5] = 36 }
+-- how far in front of the camera a gem ends up when it "hits" the counter
+local HUD_DEPTH = 3
 
 local fx = Instance.new("Folder")
 fx.Name = "CollectBurstFx"
@@ -57,21 +58,21 @@ function CollectBurst.fit(model, size)
 	model:ScaleTo(model:GetScale() * size / math.max(s.X, s.Y, s.Z))
 end
 
--- a ViewportFrame with the model in it, lit and angled so you see the facets. used for the counter
--- icon and the pieces flying into it, so they're the actual gem instead of a flat picture
+-- a ViewportFrame with the model in it, lit from the top left so the facets read. for a HUD icon
+-- that's the real thing rather than a drawing of it
 function CollectBurst.icon3d(template)
 	local vp = Instance.new("ViewportFrame")
 	vp.BackgroundTransparency = 1
-	vp.Ambient = Color3.fromRGB(190, 190, 200)
+	vp.Ambient = Color3.fromRGB(95, 85, 115)
 	vp.LightColor = Color3.new(1, 1, 1)
-	vp.LightDirection = Vector3.new(-1, -1, -1)
+	vp.LightDirection = Vector3.new(-1, -1.4, -0.8)
 	local model = CollectBurst.asModel(template)
-	model:PivotTo(CFrame.Angles(math.rad(20), math.rad(30), 0))
+	model:PivotTo(CFrame.Angles(math.rad(15), math.rad(35), 0))
 	local cf, size = model:GetBoundingBox()
 	model.Parent = vp
 	local cam = Instance.new("Camera")
 	cam.FieldOfView = 30
-	local dist = math.max(size.X, size.Y, size.Z) / 2 / math.tan(math.rad(15)) * 1.15
+	local dist = math.max(size.X, size.Y, size.Z) / 2 / math.tan(math.rad(15)) * 1.1
 	cam.CFrame = CFrame.lookAt(cf.Position + Vector3.new(0, 0, dist), cf.Position)
 	cam.Parent = vp
 	vp.CurrentCamera = cam
@@ -169,43 +170,43 @@ end
 local function placeholderGem(color)
 	local p = Instance.new("Part")
 	p.Size = Vector3.new(0.9, 0.9, 0.9)
-	p.Material = Enum.Material.Neon
+	p.Material = Enum.Material.SmoothPlastic
 	p.Color = color
 	return p
 end
 
 local function addTrail(part, color)
 	local a0 = Instance.new("Attachment")
-	a0.Position = Vector3.new(0, 0.3, 0)
+	a0.Position = Vector3.new(0, 0.2, 0)
 	a0.Parent = part
 	local a1 = Instance.new("Attachment")
-	a1.Position = Vector3.new(0, -0.3, 0)
+	a1.Position = Vector3.new(0, -0.2, 0)
 	a1.Parent = part
 	local trail = Instance.new("Trail")
 	trail.Attachment0 = a0
 	trail.Attachment1 = a1
-	trail.Lifetime = 0.18
-	trail.LightEmission = 1
+	trail.Lifetime = 0.14
+	trail.LightEmission = 0.4
 	trail.Color = ColorSequence.new(color)
-	trail.Transparency = NumberSequence.new(0.2, 1)
+	trail.Transparency = NumberSequence.new(0.45, 1)
 	trail.WidthScale = NumberSequence.new(1, 0)
 	trail.Enabled = false
 	trail.Parent = part
 	return trail
 end
 
--- a little glint when a gem hits the ground. roblox ships this texture so there's nothing to upload
+-- a small glint when a gem hits the ground. kept dim: in a dark scene bright sparkles bloom into blobs
 local function addSparkle(part, color)
 	local a = Instance.new("Attachment")
 	a.Parent = part
 	local e = Instance.new("ParticleEmitter")
 	e.Texture = "rbxasset://textures/particles/sparkles_main.dds"
 	e.Color = ColorSequence.new(Color3.new(1, 1, 1), color)
-	e.LightEmission = 1
-	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
-	e.Transparency = NumberSequence.new(0, 1)
-	e.Lifetime = NumberRange.new(0.25, 0.45)
-	e.Speed = NumberRange.new(3, 7)
+	e.LightEmission = 0.25
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 0) })
+	e.Transparency = NumberSequence.new(0.2, 1)
+	e.Lifetime = NumberRange.new(0.2, 0.35)
+	e.Speed = NumberRange.new(2, 5)
 	e.SpreadAngle = Vector2.new(180, 180)
 	e.Drag = 6
 	e.Rate = 0
@@ -214,10 +215,10 @@ local function addSparkle(part, color)
 end
 
 -- `value` worth of gems pop out of `origin`, bounce on the ground, then get pulled into whatever
--- `opts.collector()` returns (usually the player's root part). when a gem reaches it, it jumps onto
--- the screen and flies into `opts.target` (a GuiObject).
--- opts: target, collector, color, gem (template, optional), icon (image id, optional),
---       iconModel (template to show as a 3D icon, optional), onArrive(worth, n, total)
+-- `opts.collector()` returns (usually the player's root part). when a gem reaches it, the gem itself
+-- keeps flying, up into `opts.target` (a GuiObject) on screen, shrinking as it goes, so it looks
+-- like the real thing lands in the counter.
+-- opts: target, collector, color, gem (template, optional), onArrive(worth, n, total)
 function CollectBurst.drop(origin, value, opts)
 	local camera = workspace.CurrentCamera
 	local gui = opts.target:FindFirstAncestorOfClass("ScreenGui")
@@ -234,6 +235,9 @@ function CollectBurst.drop(origin, value, opts)
 				d.CanCollide = false
 				d.CanQuery = false
 				d.CanTouch = false
+				d.CastShadow = true
+			elseif d:IsA("Light") then
+				d:Destroy()
 			end
 		end
 		CollectBurst.fit(model, GEM_SIZE * WORTH_SCALE[worth])
@@ -241,6 +245,7 @@ function CollectBurst.drop(origin, value, opts)
 		model.Parent = fx
 		table.insert(gems, {
 			model = model,
+			base = model:GetScale(),
 			worth = worth,
 			r = size.Y / 2,
 			trail = addTrail(model.PrimaryPart, opts.color),
@@ -248,9 +253,10 @@ function CollectBurst.drop(origin, value, opts)
 			pos = origin,
 			vel = Vector3.new((math.random() - 0.5) * 22, 20 + math.random() * 12, (math.random() - 0.5) * 22),
 			spin = 2 + math.random() * 3,
+			tilt = Vector3.new(math.random() * 0.6, 0, math.random() * 0.6),
 			age = 0,
 			-- they sit on the ground for a beat, then get pulled in one after another
-			magnetAt = 0.95 + i * 0.04,
+			magnetAt = 0.95 + i * 0.05,
 			speed = 0,
 		})
 	end
@@ -267,23 +273,28 @@ function CollectBurst.drop(origin, value, opts)
 			end
 			alive += 1
 			g.age += dt
+			local extraSpin = 0
 
-			if g.icon then
-				g.t += dt / g.dur
-				local k = math.min(g.t, 1)
-				local to = opts.target.AbsolutePosition + opts.target.AbsoluteSize / 2
-				local at = bezier(g.from, g.ctrl, to, k * k)
-				local s = ICON_PX[g.worth] * (1.2 - 0.4 * k)
-				g.icon.Position = UDim2.fromOffset(at.X, at.Y)
-				g.icon.Size = UDim2.fromOffset(s, s)
-				g.icon.Rotation += 360 * dt
+			if g.flying then
+				-- the last leg: from where it was picked up to a point just in front of the camera,
+				-- lined up with the counter. ease in, so it speeds up and snaps into the HUD
+				g.t = math.min(g.t + dt / g.dur, 1)
+				local hud = opts.target.AbsolutePosition + opts.target.AbsoluteSize / 2 + inset
+				local ray = camera:ViewportPointToRay(hud.X, hud.Y)
+				local to = ray.Origin + ray.Direction * HUD_DEPTH
+				local e = g.t * g.t
+				g.pos = bezier(g.from, g.from + Vector3.new(0, 4, 0), to, e)
+				g.model:ScaleTo(g.base * (1 - 0.8 * e))
+				extraSpin = 8 * e
 				if g.t >= 1 then
-					g.icon:Destroy()
+					g.model:Destroy()
+					g.model = nil
 					g.done = true
 					arrived += 1
 					if opts.onArrive then
 						opts.onArrive(g.worth, arrived, #gems)
 					end
+					continue
 				end
 			elseif g.age < g.magnetAt or not root then
 				-- bouncing: fall, and when the ground is under it, bounce with less each time
@@ -294,9 +305,9 @@ function CollectBurst.drop(origin, value, opts)
 				if hit and g.pos.Y - g.r < hit.Position.Y then
 					g.pos = Vector3.new(g.pos.X, hit.Position.Y + g.r, g.pos.Z)
 					local impact = math.abs(g.vel.Y)
-					-- harder landings throw more sparkles, resting on the ground throws none
-					if impact > 12 then
-						g.sparkle:Emit(math.clamp(math.floor(impact / 5), 2, 8))
+					-- harder landings throw a few more glints, resting on the ground throws none
+					if impact > 14 then
+						g.sparkle:Emit(math.clamp(math.floor(impact / 8), 1, 4))
 					end
 					local up = impact * 0.4
 					g.vel = Vector3.new(g.vel.X * 0.55, if up < 4 then 0 else up, g.vel.Z * 0.55)
@@ -309,46 +320,19 @@ function CollectBurst.drop(origin, value, opts)
 				g.trail.Enabled = true
 				local d = root.Position - g.pos
 				g.speed = math.min(g.speed + 140 * dt, 100)
-				if d.Magnitude < 1.5 or d.Magnitude < g.speed * dt then
-					-- picked up: swap the gem for a 2D piece at the same spot on screen
-					local screen = camera:WorldToViewportPoint(g.pos)
-					local icon
-					if opts.iconModel then
-						icon = CollectBurst.icon3d(opts.iconModel)
-					elseif opts.icon then
-						icon = Instance.new("ImageLabel")
-						icon.Image = opts.icon
-						icon.BackgroundTransparency = 1
-					else
-						icon = Instance.new("Frame")
-						icon.Rotation = 45
-						icon.BackgroundColor3 = opts.color
-						icon.BorderSizePixel = 0
-						local stroke = Instance.new("UIStroke")
-						stroke.Color = Color3.new(1, 1, 1)
-						stroke.Thickness = 1.5
-						stroke.Parent = icon
-					end
-					icon.AnchorPoint = Vector2.new(0.5, 0.5)
-					icon.Parent = gui
-					g.model:Destroy()
-					g.model = nil
-					g.icon = icon
-					g.from = Vector2.new(screen.X, screen.Y) - inset
-					g.ctrl = g.from + Vector2.new((math.random() - 0.5) * 160, -80 - math.random() * 80)
+				if d.Magnitude < 2 or d.Magnitude < g.speed * dt then
+					g.flying = true
+					g.from = g.pos
 					g.t = 0
-					g.dur = 0.35 + math.random() * 0.15
-					icon.Position = UDim2.fromOffset(g.from.X, g.from.Y)
+					g.dur = 0.38 + math.random() * 0.14
 				else
 					g.pos += d.Unit * g.speed * dt
 				end
 			end
 
-			if g.model then
-				-- once it's settled it floats up off the ground and bobs until it gets pulled in
-				local bob = if g.landedAt and not g.trail.Enabled then 0.15 * (1 - math.cos((g.age - g.landedAt) * 7)) else 0
-				g.model:PivotTo(CFrame.new(g.pos + Vector3.new(0, bob, 0)) * CFrame.Angles(0, g.age * g.spin, 0.35))
-			end
+			-- once it's settled it floats up off the ground and bobs until it gets pulled in
+			local bob = if g.landedAt and not g.trail.Enabled then 0.15 * (1 - math.cos((g.age - g.landedAt) * 7)) else 0
+			g.model:PivotTo(CFrame.new(g.pos + Vector3.new(0, bob, 0)) * CFrame.Angles(g.tilt.X, g.age * (g.spin + extraSpin), g.tilt.Z))
 		end
 		if alive == 0 then
 			conn:Disconnect()

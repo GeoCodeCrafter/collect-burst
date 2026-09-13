@@ -28,7 +28,14 @@ if not pickup then
 	pickup.Volume = 0.5
 end
 local iconImage = asset("Icon") and asset("Icon").Texture
-local iconModel = not iconImage and asset("Gem") or nil
+-- what drops is a chunk of the rock's own amethyst. the cut gem and a drawn diamond both read like a
+-- kids game, so the counter shows the same amethyst, rendered in 3D
+local rockAsset = asset("Rock")
+local dropTemplate = (rockAsset and rockAsset:FindFirstChild("Crystals")) or asset("Gem")
+local iconModel = not iconImage and dropTemplate or nil
+local VIOLET = Color3.fromRGB(196, 160, 255)
+local FONT = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Bold)
+local FONT_LIGHT = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Medium)
 
 local function play(sound, speed)
 	if not sound then
@@ -48,62 +55,83 @@ gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
 gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
+-- no box behind it: a small cut-gem mark, a caption and the number, like a proper game HUD
 local counter = Instance.new("Frame")
 counter.AnchorPoint = Vector2.new(1, 0)
-counter.Position = UDim2.new(1, -24, 0, 70)
-counter.Size = UDim2.fromOffset(150, 50)
-counter.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-counter.BackgroundTransparency = 0.2
+counter.Position = UDim2.new(1, -36, 0, 64)
+counter.Size = UDim2.fromOffset(170, 56)
+counter.BackgroundTransparency = 1
 counter.Parent = gui
-Instance.new("UICorner", counter).CornerRadius = UDim.new(0, 12)
 local scale = Instance.new("UIScale", counter)
-local rim = Instance.new("UIStroke", counter)
-rim.Color = COLOR
-rim.Thickness = 2
-rim.Transparency = 1
 
-local icon
+local icon, rim
 if iconModel then
 	icon = CollectBurst.icon3d(iconModel)
-	icon.Size = UDim2.fromOffset(38, 38)
+	icon.Size = UDim2.fromOffset(34, 34)
+	rim = Instance.new("UIStroke")
 elseif iconImage then
 	icon = Instance.new("ImageLabel")
 	icon.Image = iconImage
 	icon.BackgroundTransparency = 1
-	icon.Size = UDim2.fromOffset(30, 30)
+	icon.Size = UDim2.fromOffset(24, 24)
+	rim = Instance.new("UIStroke")
 else
+	-- thin light outline round a violet fill that fades down, turned 45 so it reads as a cut stone
 	icon = Instance.new("Frame")
 	icon.Rotation = 45
-	icon.BackgroundColor3 = COLOR
+	icon.Size = UDim2.fromOffset(16, 16)
+	icon.BackgroundColor3 = Color3.new(1, 1, 1)
 	icon.BorderSizePixel = 0
-	icon.Size = UDim2.fromOffset(20, 20)
+	local fill = Instance.new("UIGradient", icon)
+	fill.Color = ColorSequence.new(Color3.fromRGB(226, 206, 255), Color3.fromRGB(88, 38, 168))
+	fill.Rotation = 45
+	rim = Instance.new("UIStroke", icon)
+	rim.Color = Color3.fromRGB(240, 232, 255)
+	rim.Thickness = 1
+	rim.Transparency = 0.3
 end
 icon.AnchorPoint = Vector2.new(0.5, 0.5)
-icon.Position = UDim2.new(0, 28, 0.5, 0)
+icon.Position = UDim2.new(0, 12, 0, 36)
 icon.Parent = counter
 local restRotation = icon.Rotation
+local rimRest = rim.Transparency
+
+local caption = Instance.new("TextLabel")
+caption.BackgroundTransparency = 1
+caption.Position = UDim2.fromOffset(32, 4)
+caption.Size = UDim2.new(1, -32, 0, 14)
+caption.FontFace = FONT_LIGHT
+caption.TextSize = 13
+caption.TextColor3 = VIOLET
+caption.TextTransparency = 0.15
+caption.TextXAlignment = Enum.TextXAlignment.Left
+caption.Text = "AMETHYST"
+caption.Parent = counter
 
 local label = Instance.new("TextLabel")
 label.BackgroundTransparency = 1
-label.Position = UDim2.fromOffset(52, 0)
-label.Size = UDim2.new(1, -62, 1, 0)
-label.Font = Enum.Font.GothamBold
-label.TextSize = 28
+label.Position = UDim2.fromOffset(32, 18)
+label.Size = UDim2.new(1, -32, 0, 36)
+label.FontFace = FONT
+label.TextSize = 34
 label.TextColor3 = Color3.new(1, 1, 1)
 label.TextXAlignment = Enum.TextXAlignment.Left
 label.Text = "0"
 label.Parent = counter
+local labelShadow = Instance.new("UIStroke", label)
+labelShadow.Thickness = 1
+labelShadow.Transparency = 0.75
 
 -- "+30" under the counter, counts up as the gems land then floats off
-local POPUP_AT = UDim2.new(1, -24, 0, 126)
+local POPUP_AT = UDim2.new(1, -36, 0, 122)
 local popup = Instance.new("TextLabel")
 popup.AnchorPoint = Vector2.new(1, 0)
 popup.Position = POPUP_AT
-popup.Size = UDim2.fromOffset(150, 30)
+popup.Size = UDim2.fromOffset(138, 26)
 popup.BackgroundTransparency = 1
-popup.Font = Enum.Font.GothamBlack
-popup.TextSize = 26
-popup.TextColor3 = COLOR
+popup.FontFace = FONT
+popup.TextSize = 22
+popup.TextColor3 = VIOLET
 popup.TextXAlignment = Enum.TextXAlignment.Right
 popup.TextTransparency = 1
 popup.Text = ""
@@ -132,8 +160,9 @@ local function arrive(worth, n, count)
 	TweenService:Create(scale, back, { Scale = 1 }):Play()
 	icon.Rotation = restRotation + 8 * worth
 	TweenService:Create(icon, back, { Rotation = restRotation }):Play()
-	rim.Transparency = 0.2
-	TweenService:Create(rim, TweenInfo.new(0.3), { Transparency = 1 }):Play()
+	-- the mark's outline flashes bright and settles back
+	rim.Transparency = 0
+	TweenService:Create(rim, TweenInfo.new(0.3), { Transparency = rimRest }):Play()
 	-- pitch climbs as the haul comes in
 	play(pickup, 0.9 + 0.6 * n / count)
 
@@ -199,9 +228,34 @@ local function spawnOre()
 	ore.Name = "Ore"
 	CollectBurst.fit(ore, ROCK_SIZE)
 	ore:PivotTo(CFrame.new(ORE_AT) * CFrame.Angles(0, math.random() * math.pi, 0))
-	-- sit it on the ground whatever shape it is
+	-- sit it on whatever ground is actually there. terrain rounds to its own grid, so assuming y=0
+	-- buried the rock up to its crystals
+	local down = RaycastParams.new()
+	down.FilterType = Enum.RaycastFilterType.Exclude
+	down.FilterDescendantsInstances = { ore, Players.LocalPlayer.Character }
+	-- the ground is built on the server, so give it a few seconds to reach us before placing the rock
+	local ground
+	for _ = 1, 50 do
+		-- from just above the spot, not the sky: in the cave a ray from the sky lands on the roof
+		ground = workspace:Raycast(ORE_AT + Vector3.new(0, 8, 0), Vector3.new(0, -30, 0), down)
+		if ground then
+			break
+		end
+		task.wait(0.1)
+	end
+	local groundY = if ground then ground.Position.Y else ORE_AT.Y
 	local cf, size = ore:GetBoundingBox()
-	ore:PivotTo(ore:GetPivot() + Vector3.new(0, ORE_AT.Y - (cf.Position.Y - size.Y / 2), 0))
+	ore:PivotTo(ore:GetPivot() + Vector3.new(0, groundY - 0.15 - (cf.Position.Y - size.Y / 2), 0))
+	-- the amethyst throws a little violet light onto the stone around it
+	local crystals = ore:FindFirstChild("Crystals")
+	if crystals then
+		local glow = Instance.new("PointLight")
+		glow.Color = COLOR
+		glow.Brightness = 0.8
+		glow.Range = 7
+		glow.Shadows = false
+		glow.Parent = crystals
+	end
 	ore.Parent = workspace
 	CollectBurst.popIn(ore)
 	return ore
@@ -226,7 +280,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 			CollectBurst.drop(at, ORE_VALUE, {
 				target = icon,
 				color = COLOR,
-				gem = asset("Gem"),
+				gem = dropTemplate,
 				icon = iconImage,
 				iconModel = iconModel,
 				collector = function()

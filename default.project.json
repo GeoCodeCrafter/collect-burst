@@ -5,6 +5,9 @@
     "ReplicatedStorage": {
       "CollectBurst": { "$path": "src/CollectBurst.luau" }
     },
+    "ServerScriptService": {
+      "Scene": { "$path": "src/Scene.server.luau" }
+    },
     "StarterPlayer": {
       "StarterPlayerScripts": {
         "Demo": { "$path": "src/Demo.client.luau" }

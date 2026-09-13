@@ -31,3 +31,9 @@ swapped the cubes for proper models off the creator store. dark low poly rock wi
 the store models looked cheap so i rebuilt everything. first try was a rock made from maths in blender and it looked like play dough in game. now the rock is a real photogrammetry scan (boulder 01 off poly haven, cc0) cut down to 16.5k tris with its scanned textures, and the amethyst is modelled from scratch: tapered six sided crystals with growth ridges and bevelled edges, a bed of little ones round the base, dark violet at the tips. gems sparkle when they land and bob while they wait. also fixed the whole rock being tipped 90 degrees, blender's Z-up leaves the pivot rotated when you import
 
 <img src="progress/05-scanned-rock.gif" width="720" alt="the scanned rock with amethyst crystals breaking into gems">
+
+### 06 · crystal cave
+
+gave it a proper set to show it off: a cave carved out of terrain with a shaft in the roof, amethyst growing out of the walls and two lanterns either side of the rock. the drops are chunks of the rock's own amethyst now instead of a cartoon cut gem, and they don't turn into flat squares any more, the actual crystal flies up into the counter and shrinks into it. counter lost its box too, it's just the amethyst, a caption and the number. two bugs on the way: the rock landed on the cave roof because it looked for the ground from the sky, and no wall crystals showed up because terrain isn't solid for a moment after you make it
+
+<img src="progress/06-crystal-cave.gif" width="720" alt="breaking the ore in the crystal cave, amethyst flying into the counter">
