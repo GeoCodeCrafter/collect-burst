@@ -154,9 +154,10 @@ def bake_to_textures(obj, out, tex=512):
         if bake_type == "DIFFUSE":
             kw["pass_filter"] = {"COLOR"}
         bpy.ops.object.bake(**kw)
-        path = os.path.join(out, f"{obj.name}_{kind}.png")
+        # jpg keeps the fbx small, these are smooth gradients so compression doesn't show
+        path = os.path.join(out, f"{obj.name}_{kind}.jpg")
         img.filepath_raw = path
-        img.file_format = "PNG"
+        img.file_format = "JPEG"
         img.save()
         maps[kind] = img
     game = bpy.data.materials.new(obj.name + "_game")

@@ -41,10 +41,11 @@ effect("Atmosphere", {
 	Glare = 0,
 	Haze = 0.6,
 })
+-- no saturation boost: pushed up, the scanned rock went cartoon orange
 effect("ColorCorrectionEffect", {
 	Brightness = 0,
 	Contrast = 0.2,
-	Saturation = 0.1,
+	Saturation = -0.05,
 	TintColor = Color3.fromRGB(240, 238, 255),
 })
 -- only the lantern glass is bright enough to bloom. a lower threshold turned every gem into a white blob
@@ -120,7 +121,7 @@ if crystalTemplate then
 		local dir = Vector3.new(math.cos(a), rng:NextNumber(-0.25, 0.35), math.sin(a)).Unit
 		local from = CENTER + Vector3.new(0, 5, 0)
 		local hit = workspace:Raycast(from, dir * (RADIUS + 20), params)
-		if hit and (hit.Position - ORE_AT).Magnitude > 9 then
+		if hit and (hit.Position - ORE_AT).Magnitude > 13 then
 			local up = hit.Normal
 			local right = up:Cross(Vector3.new(rng:NextNumber(-1, 1), 0.3, rng:NextNumber(-1, 1))).Unit
 			local c = crystalTemplate:Clone()
@@ -152,11 +153,30 @@ key.CanQuery = false
 key.CanTouch = false
 key.Transparency = 1
 key.Size = Vector3.one * 0.2
-key.CFrame = CFrame.new(ORE_AT + Vector3.new(-3, 9, 5))
+key.CFrame = CFrame.new(ORE_AT + Vector3.new(-5, 14, 9))
 key.Parent = set
+-- lit like a product shot: a near-neutral warm key from the front, and a cool violet rim from behind
+-- that catches the cracks and edges. one warm light on its own flattened the scan into orange paint
 local light = Instance.new("PointLight")
-light.Color = Color3.fromRGB(255, 176, 100)
-light.Brightness = 2.4
-light.Range = 22
+light.Color = Color3.fromRGB(255, 222, 190)
+light.Brightness = 2
+light.Range = 30
 light.Shadows = true
 light.Parent = key
+
+local rim = Instance.new("Part")
+rim.Name = "RimLight"
+rim.Anchored = true
+rim.CanCollide = false
+rim.CanQuery = false
+rim.CanTouch = false
+rim.Transparency = 1
+rim.Size = Vector3.one * 0.2
+rim.CFrame = CFrame.new(ORE_AT + Vector3.new(7, 8, -9))
+rim.Parent = set
+local rimLight = Instance.new("PointLight")
+rimLight.Color = Color3.fromRGB(130, 140, 255)
+rimLight.Brightness = 1.6
+rimLight.Range = 24
+rimLight.Shadows = true
+rimLight.Parent = rim

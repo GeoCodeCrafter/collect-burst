@@ -1,23 +1,23 @@
--- after Import 3D of collect_burst_assets.fbx: move the meshes into CollectBurstAssets and set materials
+-- run in the command bar after File > Import 3D of assets/collect_burst_assets.fbx. sorts the import into
+-- ReplicatedStorage.CollectBurstAssets: Rock (four textured quarters + Crystals), Variants (V01..V10, same
+-- layout), Chunk, Gem. whatever was there before is kept in ServerStorage.OldStoreAssets
 local rs = game:GetService("ReplicatedStorage")
 local ss = game:GetService("ServerStorage")
 
 local imported
 for _, m in workspace:GetDescendants() do
-	if m:IsA("Model") and m:FindFirstChild("Rock", true) and m:FindFirstChild("Gem", true) and m:FindFirstChild("Chunk1", true) then
+	if m:IsA("Model") and m:FindFirstChild("RockA", true) and m:FindFirstChild("Gem", true) then
 		imported = m
 		break
 	end
 end
 if not imported then
-	return "no imported model found"
+	return "no imported model found (looking for one with RockA and Gem in it)"
 end
 local function part(name)
 	local p = imported:FindFirstChild(name, true)
 	return p and (if p:IsA("BasePart") then p else p:FindFirstChildWhichIsA("BasePart", true))
 end
-
-local out = {}
 for _, d in imported:GetDescendants() do
 	if d:IsA("LuaSourceContainer") then
 		d:Destroy()
@@ -27,76 +27,89 @@ end
 local f = rs:FindFirstChild("CollectBurstAssets") or Instance.new("Folder")
 f.Name = "CollectBurstAssets"
 f.Parent = rs
--- keep the old store picks around rather than deleting them
 local old = ss:FindFirstChild("OldStoreAssets") or Instance.new("Folder")
 old.Name = "OldStoreAssets"
 old.Parent = ss
-for _, n in { "Rock", "Gem", "Chunk" } do
+for _, n in { "Rock", "Gem", "Chunk", "Variants" } do
 	local x = f:FindFirstChild(n)
 	if x then
 		x.Parent = old
 	end
 end
 
-local AMETHYST = Color3.fromRGB(150, 70, 235)
-local function glass(p, transparency)
-	p.Material = Enum.Material.Glass
-	p.Color = AMETHYST
-	p.Transparency = transparency
-	p.Reflectance = 0.15
-	local sa = p:FindFirstChildWhichIsA("SurfaceAppearance")
-	if sa then
-		sa:Destroy()
+-- a rock is its four quarters plus its crystals, pivoting upright at the middle
+local function buildRock(name, prefix)
+	local model = Instance.new("Model")
+	model.Name = name
+	for _, letter in { "A", "B", "C", "D" } do
+		local p = part(prefix .. "Rock" .. letter)
+		if p then
+			p.Name = "Rock" .. letter
+			p.Parent = model
+		end
 	end
+	local crystals = part(prefix .. "Crystals")
+	if crystals then
+		crystals.Name = "Crystals"
+		crystals.Parent = model
+	end
+	model.PrimaryPart = model:FindFirstChild("RockA")
+	return model
 end
 
-local rock, crystals = part("Rock"), part("Crystals")
-local rockModel = Instance.new("Model")
-rockModel.Name = "Rock"
-rock.Parent = rockModel
-if crystals then
-	-- crystals now bring their own baked colour/roughness. keep that instead of flat glass
-	if not crystals:FindFirstChildWhichIsA("SurfaceAppearance") then
-		glass(crystals, 0)
-		crystals.Reflectance = 0.4
-	end
-	crystals.Parent = rockModel
-end
-rockModel.PrimaryPart = rock
-rockModel.Parent = f
+local out = {}
+local rock = buildRock("Rock", "")
+rock.Parent = f
+table.insert(out, "Rock: " .. #rock:GetChildren() .. " parts")
 
-local gem = part("Gem")
--- see-through glass has nothing to show through in an empty scene, so the facets vanish.
--- solid with some shine catches light on each facet
-glass(gem, 0)
-gem.Reflectance = 0.4
-gem.Name = "Gem"
-gem.Parent = f
+local variants = Instance.new("Folder")
+variants.Name = "Variants"
+variants.Parent = f
+for v = 1, 10 do
+	local tag = string.format("V%02d", v)
+	local m = buildRock(tag, tag .. "_")
+	if m.PrimaryPart then
+		m.Parent = variants
+	end
+end
+table.insert(out, "Variants: " .. #variants:GetChildren())
 
 local chunk = Instance.new("Model")
 chunk.Name = "Chunk"
-for i = 1, 3 do
-	local c = part("Chunk" .. i)
-	if c then
-		c.Parent = chunk
-	end
+local c1 = part("Chunk1")
+if c1 then
+	c1.Parent = chunk
 end
 chunk.Parent = f
-
-for _, p in { rock, gem, crystals } do
-	if p then
-		table.insert(out, string.format("%s %s tris~%s surface=%s", p.Name, p.ClassName, "?", p:FindFirstChildWhichIsA("SurfaceAppearance") and "PBR textures" or (p:IsA("MeshPart") and p.TextureID ~= "" and "colour texture only" or "none")))
-	end
+local gem = part("Gem")
+if gem then
+	gem.Material = Enum.Material.Glass
+	gem.Color = Color3.fromRGB(150, 70, 235)
+	gem.Reflectance = 0.4
+	gem.Parent = f
 end
-local c1 = chunk:FindFirstChildWhichIsA("BasePart")
-table.insert(out, "chunks " .. #chunk:GetChildren() .. " surface=" .. (c1 and c1:FindFirstChildWhichIsA("SurfaceAppearance") and "PBR textures" or "none"))
--- the importer leaves each part's PivotOffset rotated 90 for blender's Z-up. a model with a PrimaryPart
--- uses that part's offset (WorldPivot is ignored), so placing it upright tipped the rock onto its side
+
+-- the importer leaves each part's PivotOffset rotated 90 for blender's Z-up, and a model with a PrimaryPart
+-- uses that part's offset (WorldPivot is ignored), which tipped the rock on its side. reset them all, put
+-- each rock's pivot upright at its middle, and keep every mesh at full detail
 for _, d in f:GetDescendants() do
 	if d:IsA("BasePart") then
 		d.PivotOffset = CFrame.new()
+		d.Anchored = true
+	end
+	if d:IsA("MeshPart") then
+		pcall(function()
+			d.RenderFidelity = Enum.RenderFidelity.Precise
+		end)
 	end
 end
-rock.PivotOffset = rock.CFrame:Inverse() * CFrame.new(rockModel:GetBoundingBox().Position)
+for _, m in { rock, table.unpack(variants:GetChildren()) } do
+	if m.PrimaryPart then
+		m.PrimaryPart.PivotOffset = m.PrimaryPart.CFrame:Inverse() * CFrame.new(m:GetBoundingBox().Position)
+	end
+end
+
+local sa = rock:FindFirstChild("RockA") and rock.RockA:FindFirstChildWhichIsA("SurfaceAppearance")
+table.insert(out, "RockA textures: " .. (if sa then "PBR" else "MISSING"))
 imported:Destroy()
 return table.concat(out, " | ")

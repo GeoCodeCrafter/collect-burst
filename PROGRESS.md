@@ -59,3 +59,15 @@ three fortnite-ish bits at once. a glowing cyan weak point sits on the rock faci
 ### 10 · crit streak
 
 weak-point hits in a row stack a multiplier, x2 x3 up to x4, shown under the counter and carried from one rock to the next. any normal hit breaks it and the label drops away. the crit ding climbs in pitch as the streak goes up
+
+### 11 · sharper rock, ten more of them, a rust-style weak point
+
+the rock still looked low res up close because roblox caps a texture at 1024 and that was stretched over a 9 stud rock. so it's cut into four quarters now, each with its own 1024 texture baked from the full 66k tri scan, about four times the detail. then ten variants for a level: the same scan bent and stretched differently with its own amethyst, and they all share those four textures. a random one grows back each time. the weak point lost the blue circle, it's a warm glint in the stone now with little sparks spitting out and falling, like rust
+
+<img src="progress/10-sharper-rock-variants.gif" width="720" alt="breaking different rock variants, crit streak x4, amethyst and loot beams everywhere">
+
+### 12 · coal, iron, gold, diamond
+
+rocks roll an ore now: coal is common, iron less so, amethyst, then rare gold and very rare diamond, each worth more than the last. the ore clusters are modelled in blender (tools/blender/ores.py): coal and iron are angular broken lumps, gold is rounded pitted nuggets in real metal, diamonds are rough octahedra done as roblox glass. they get set into the rock where it faces out, the name shows over the hit marks, the right nuggets fly out, and the counter turned into a resource list with a row for each ore. first bake turned the gold black, turns out a diffuse colour bake of a metal is just black
+
+<img src="progress/12-ore-types.gif" width="720" alt="mining coal, iron, gold and diamond rocks, each ore gets its own row in the resource list">

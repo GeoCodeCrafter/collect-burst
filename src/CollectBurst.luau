@@ -149,7 +149,9 @@ end
 -- once the rock is gone
 function CollectBurst.crumble(model, chunk, onDone)
 	local cf, size = model:GetBoundingBox()
-	dustPuff(cf.Position, Vector3.yAxis, 18, 1.6)
+	-- rubble and dust scale with the rock, a big rock breaks into big pieces
+	local k = math.max(size.X, size.Z) / 4.5
+	dustPuff(cf.Position, Vector3.yAxis, 18, 1.6 * k)
 	local sources = {}
 	if chunk then
 		if chunk:IsA("BasePart") then
@@ -165,7 +167,7 @@ function CollectBurst.crumble(model, chunk, onDone)
 
 	for _ = 1, 7 do
 		local c
-		local target = 0.5 + math.random() * 0.6
+		local target = (0.5 + math.random() * 0.6) * k
 		if #sources > 0 then
 			c = sources[math.random(#sources)]:Clone()
 			for _, k in c:GetChildren() do
@@ -225,7 +227,8 @@ function CollectBurst.hit(model, chunk, at, normal, power)
 	normal = normal or Vector3.yAxis
 	-- power 2 is a crit: twice the chips and dust and a harder wobble
 	power = power or 1
-	dustPuff(at, normal, math.floor(10 * power), 0.8 + 0.2 * power)
+	local k = math.max(size.X, size.Z) / 4.5
+	dustPuff(at, normal, math.floor(10 * power), (0.8 + 0.2 * power) * k)
 	local sources = {}
 	if chunk then
 		if chunk:IsA("BasePart") then
@@ -239,7 +242,7 @@ function CollectBurst.hit(model, chunk, at, normal, power)
 		end
 	end
 	for _ = 1, 3 * power do
-		local target = 0.22 + math.random() * 0.25
+		local target = (0.22 + math.random() * 0.25) * k
 		local c
 		if #sources > 0 then
 			c = sources[math.random(#sources)]:Clone()

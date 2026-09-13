@@ -2,7 +2,7 @@
 
 the "ore breaks and flies into your counter" effect for roblox. the rock crumbles, gems bounce out, get pulled into you and fly into the counter.
 
-<img src="progress/09-weak-point-loot.gif" width="720" alt="hitting the weak point for crits, numbers popping and loot beams on the ground">
+<img src="progress/10-sharper-rock-variants.gif" width="720" alt="breaking different rock variants, crit streak x4, amethyst and loot beams everywhere">
 
 `rojo serve` or paste src/CollectBurst.luau into a ModuleScript in ReplicatedStorage and src/Demo.client.luau into a LocalScript in StarterPlayerScripts, then hit play and hit the rock a few times. src/Scene.server.luau is optional, put it in ServerScriptService for the cave set in the gif
 
