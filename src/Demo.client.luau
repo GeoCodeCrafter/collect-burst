@@ -14,6 +14,9 @@ local ORE_VALUE = 30
 -- it takes a few hits: each early hit spills a little, the last one breaks it and drops the rest
 local HITS = 3
 local HIT_VALUE = 4
+-- the glowing weak point on the rock: hit it for a crit worth 3x (2x on the breaking hit)
+local CRIT_COLOR = Color3.fromRGB(80, 200, 255)
+local CRIT_BONUS = 3
 local ROCK_SIZE = 4.5
 
 -- your assets go in ReplicatedStorage.CollectBurstAssets, all optional:
@@ -226,6 +229,62 @@ local function placeholderRock()
 	return ore
 end
 
+-- puts the crit spot somewhere on the rock's surface on the side facing you, replacing the old one:
+-- a cyan disc with a ring pulsing out of it and a little light
+local function placeWeakPoint(ore)
+	local old = ore:FindFirstChild("WeakPoint")
+	if old then
+		old:Destroy()
+	end
+	local cf, box = ore:GetBoundingBox()
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { ore }
+	local character = Players.LocalPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local toward = if root then (root.Position - cf.Position) * Vector3.new(1, 0, 1) else Vector3.zAxis
+	toward = if toward.Magnitude > 0.1 then toward.Unit else Vector3.zAxis
+	for _ = 1, 25 do
+		local swing = CFrame.Angles(0, (math.random() - 0.5) * math.pi * 1.1, 0)
+		local dir = (swing:VectorToWorldSpace(toward) + Vector3.new(0, math.random() * 0.7, 0)).Unit
+		local from = cf.Position + dir * (math.max(box.X, box.Y, box.Z) + 2)
+		local hit = workspace:Raycast(from, cf.Position - from, params)
+		if hit then
+			local point = Instance.new("Model")
+			point.Name = "WeakPoint"
+			local function disc(name, size, transparency)
+				local d = Instance.new("Part")
+				d.Name = name
+				d.Shape = Enum.PartType.Cylinder
+				d.Size = Vector3.new(0.06, size, size)
+				d.Material = Enum.Material.Neon
+				d.Color = CRIT_COLOR
+				d.Transparency = transparency
+				d.Anchored = true
+				d.CanCollide = false
+				d.CastShadow = false
+				-- a cylinder's round face points along its X, so turn X to face out of the surface
+				d.CFrame = CFrame.lookAt(hit.Position + hit.Normal * 0.06, hit.Position + hit.Normal * 2) * CFrame.Angles(0, math.rad(90), 0)
+				d.Parent = point
+				return d
+			end
+			local core = disc("Core", 0.9, 0.05)
+			local ring = disc("Ring", 0.9, 0.45)
+			local glow = Instance.new("PointLight")
+			glow.Color = CRIT_COLOR
+			glow.Brightness = 1.4
+			glow.Range = 5
+			glow.Parent = core
+			TweenService:Create(ring, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, -1), {
+				Size = Vector3.new(0.06, 1.9, 1.9),
+				Transparency = 1,
+			}):Play()
+			point.Parent = ore
+			return
+		end
+	end
+end
+
 local function spawnOre()
 	local ore = CollectBurst.asModel(asset("Rock") or placeholderRock())
 	ore.Name = "Ore"
@@ -286,6 +345,7 @@ local function spawnOre()
 		pip.Parent = pips
 	end
 
+	placeWeakPoint(ore)
 	CollectBurst.popIn(ore)
 	return ore
 end
@@ -318,25 +378,37 @@ UserInputService.InputBegan:Connect(function(input, processed)
 			})
 		end
 
+		-- did it land on the glowing weak point?
+		local weak = ore:FindFirstChild("WeakPoint")
+		local core = weak and weak:FindFirstChild("Core")
+		local crit = core ~= nil and (hit.Instance:IsDescendantOf(weak) or (hit.Position - core.Position).Magnitude < core.Size.Y * 0.8)
+
 		if hitsLeft > 1 then
-			-- an early hit: a softer, higher tink, the rock wobbles, a few chips and a little amethyst come off
+			-- an early hit: a tink, the rock wobbles, chips and dust and a little amethyst come off where you hit
 			ore:SetAttribute("Hits", hitsLeft - 1)
 			local pip = ore.PrimaryPart:FindFirstChild("Pips") and ore.PrimaryPart.Pips:FindFirstChild("Pip" .. hitsLeft)
 			if pip then
 				TweenService:Create(pip, TweenInfo.new(0.2), { BackgroundTransparency = 0.8 }):Play()
 			end
+			-- a crit is a sharper, higher tink with a ding on top
 			local tink = asset("Break")
 			if tink then
 				local s = tink:Clone()
-				s.Volume = tink.Volume * 0.55
-				s.PlaybackSpeed = 1.5 + math.random() * 0.15
+				s.Volume = tink.Volume * (if crit then 0.8 else 0.55)
+				s.PlaybackSpeed = (if crit then 1.95 else 1.5) + math.random() * 0.15
 				s.Parent = SoundService
 				s:Play()
 				Debris:AddItem(s, 3)
 			end
-			-- chips, dust and the amethyst all come off the spot you actually clicked
-			CollectBurst.hit(ore, asset("Chunk"), hit.Position, hit.Normal)
-			spill(HIT_VALUE, hit.Position + hit.Normal * 0.6)
+			if crit then
+				play(pickup, 1.8)
+			end
+			local value = HIT_VALUE * (if crit then CRIT_BONUS else 1)
+			CollectBurst.hit(ore, asset("Chunk"), hit.Position, hit.Normal, if crit then 2 else 1)
+			spill(value, hit.Position + hit.Normal * 0.6)
+			CollectBurst.number(hit.Position + hit.Normal * 1.2, "+" .. value, if crit then CRIT_COLOR else Color3.new(1, 1, 1), crit)
+			-- the weak point jumps somewhere new after every hit
+			placeWeakPoint(ore)
 			-- a short gap between swings so spam-clicking doesn't skip the wobble
 			busy = true
 			task.delay(0.22, function()
@@ -346,9 +418,14 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		end
 
 		busy = true
+		local value = (ORE_VALUE - HIT_VALUE * (HITS - 1)) * (if crit then 2 else 1)
 		play(asset("Break"), 1)
+		if crit then
+			play(pickup, 1.8)
+		end
+		CollectBurst.number(hit.Position + hit.Normal * 1.2, "+" .. value, if crit then CRIT_COLOR else Color3.fromRGB(255, 226, 110), true)
 		CollectBurst.crumble(ore, asset("Chunk"), function()
-			spill(ORE_VALUE - HIT_VALUE * (HITS - 1), at)
+			spill(value, at)
 			task.delay(2.5, function()
 				ore = spawnOre()
 				busy = false

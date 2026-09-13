@@ -7,7 +7,15 @@ local CollectBurst = {}
 local GRAVITY = Vector3.new(0, -80, 0)
 local GEM_SIZE = 1.2
 -- how big a gem is by what it's worth
-local WORTH_SCALE = { [1] = 0.75, [2] = 1, [5] = 1.35 }
+local WORTH_SCALE = { [1] = 0.75, [2] = 1, [5] = 1.35, [10] = 1.6, [25] = 1.95 }
+-- fortnite-style rarity by worth. anything above common stands a beam of light up off the ground
+local RARITY = {
+	[1] = { color = Color3.fromRGB(190, 190, 190) },
+	[2] = { color = Color3.fromRGB(96, 210, 60), beam = true },
+	[5] = { color = Color3.fromRGB(60, 150, 255), beam = true },
+	[10] = { color = Color3.fromRGB(190, 80, 255), beam = true },
+	[25] = { color = Color3.fromRGB(255, 176, 40), beam = true },
+}
 -- how far in front of the camera a gem ends up when it "hits" the counter
 local HUD_DEPTH = 3
 
@@ -59,7 +67,12 @@ local function split(value)
 	local out = {}
 	local left = value
 	while left > 0 do
-		local w = if left >= 5 and math.random() < 0.4 then 5 elseif left >= 2 and math.random() < 0.5 then 2 else 1
+		-- the odd epic and the rare legendary are what make every hit worth watching
+		local w = if left >= 25 and math.random() < 0.03 then 25
+			elseif left >= 10 and math.random() < 0.1 then 10
+			elseif left >= 5 and math.random() < 0.4 then 5
+			elseif left >= 2 and math.random() < 0.5 then 2
+			else 1
 		table.insert(out, w)
 		left -= w
 	end
@@ -206,11 +219,13 @@ end
 -- come off where it was hit. `at` and `normal` are that spot and the face's direction, from the click's
 -- raycast. leave them out and the chips come off the top. the wobble always settles back to the size it
 -- spawned at, even if you hit it again mid-wobble
-function CollectBurst.hit(model, chunk, at, normal)
+function CollectBurst.hit(model, chunk, at, normal, power)
 	local cf, size = model:GetBoundingBox()
 	at = at or (cf.Position + Vector3.new(0, size.Y * 0.35, 0))
 	normal = normal or Vector3.yAxis
-	dustPuff(at, normal, 10, 1)
+	-- power 2 is a crit: twice the chips and dust and a harder wobble
+	power = power or 1
+	dustPuff(at, normal, math.floor(10 * power), 0.8 + 0.2 * power)
 	local sources = {}
 	if chunk then
 		if chunk:IsA("BasePart") then
@@ -223,7 +238,7 @@ function CollectBurst.hit(model, chunk, at, normal)
 			end
 		end
 	end
-	for _ = 1, 3 do
+	for _ = 1, 3 * power do
 		local target = 0.22 + math.random() * 0.25
 		local c
 		if #sources > 0 then
@@ -272,12 +287,91 @@ function CollectBurst.hit(model, chunk, at, normal)
 		end
 		t = math.min(t + dt / 0.3, 1)
 		-- dips straight away, springs back past its size, settles
-		model:ScaleTo(base * (1 - 0.07 * math.exp(-6 * t) * math.cos(t * 18)))
+		model:ScaleTo(base * (1 - 0.07 * (0.7 + 0.3 * power) * math.exp(-6 * t) * math.cos(t * 18)))
 		if t >= 1 then
 			model:ScaleTo(base)
 			conn:Disconnect()
 		end
 	end)
+end
+
+-- a fortnite-style number popping off a hit: chunky and outlined, pops big, settles, drifts up and fades
+function CollectBurst.number(at, text, color, big)
+	local host = Instance.new("Part")
+	host.Anchored = true
+	host.CanCollide = false
+	host.CanQuery = false
+	host.CanTouch = false
+	host.Transparency = 1
+	host.Size = Vector3.one * 0.1
+	host.CFrame = CFrame.new(at)
+	local bb = Instance.new("BillboardGui")
+	bb.Size = UDim2.fromOffset(220, 80)
+	bb.AlwaysOnTop = true
+	bb.LightInfluence = 0
+	bb.Parent = host
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.FontFace = Font.fromEnum(Enum.Font.LuckiestGuy)
+	label.Text = text
+	label.TextSize = if big then 56 else 40
+	label.TextColor3 = color
+	label.Rotation = -6
+	label.Parent = bb
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = if big then 4 else 3
+	stroke.Color = Color3.fromRGB(20, 14, 30)
+	stroke.Parent = label
+	local pop = Instance.new("UIScale")
+	pop.Scale = 0.2
+	pop.Parent = label
+	host.Parent = fx
+	TweenService:Create(pop, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	local drift = Vector3.new((math.random() - 0.5) * 1.6, 3, (math.random() - 0.5) * 1.6)
+	TweenService:Create(host, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = host.CFrame + drift }):Play()
+	task.delay(0.55, function()
+		local out = TweenInfo.new(0.35)
+		TweenService:Create(label, out, { TextTransparency = 1 }):Play()
+		TweenService:Create(stroke, out, { Transparency = 1 }):Play()
+		task.delay(0.4, function()
+			host:Destroy()
+		end)
+	end)
+end
+
+-- a loot beam standing up off the ground under a gem, in its rarity colour
+local function lootBeam(color, height)
+	local host = Instance.new("Part")
+	host.Anchored = true
+	host.CanCollide = false
+	host.CanQuery = false
+	host.CanTouch = false
+	host.Transparency = 1
+	host.Size = Vector3.one * 0.1
+	local a0 = Instance.new("Attachment")
+	a0.Parent = host
+	local a1 = Instance.new("Attachment")
+	a1.Position = Vector3.new(0, height, 0)
+	a1.Parent = host
+	local beam = Instance.new("Beam")
+	beam.Attachment0 = a0
+	beam.Attachment1 = a1
+	beam.FaceCamera = true
+	beam.Width0 = 0
+	beam.Width1 = 0
+	beam.LightEmission = 1
+	beam.LightInfluence = 0
+	beam.Color = ColorSequence.new(color)
+	beam.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.2),
+		NumberSequenceKeypoint.new(0.6, 0.7),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	beam.Parent = host
+	host.Parent = fx
+	TweenService:Create(beam, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Width0 = 0.7, Width1 = 0.25 }):Play()
+	return host
 end
 
 local function placeholderGem(color)
@@ -361,7 +455,7 @@ function CollectBurst.drop(origin, value, opts)
 			base = model:GetScale(),
 			worth = worth,
 			r = size.Y / 2,
-			trail = addTrail(model.PrimaryPart, opts.color),
+			trail = addTrail(model.PrimaryPart, if RARITY[worth].beam then RARITY[worth].color else opts.color),
 			sparkle = addSparkle(model.PrimaryPart, opts.color),
 			pos = origin,
 			vel = Vector3.new((math.random() - 0.5) * 22, 20 + math.random() * 12, (math.random() - 0.5) * 22),
@@ -369,7 +463,8 @@ function CollectBurst.drop(origin, value, opts)
 			tilt = Vector3.new(math.random() * 0.6, 0, math.random() * 0.6),
 			age = 0,
 			-- they sit on the ground for a beat, then get pulled in one after another
-			magnetAt = 0.95 + i * 0.05,
+			-- long enough on the ground for the loot beams to read
+			magnetAt = 1.5 + i * 0.05,
 			speed = 0,
 		})
 	end
@@ -426,11 +521,19 @@ function CollectBurst.drop(origin, value, opts)
 					g.vel = Vector3.new(g.vel.X * 0.55, if up < 4 then 0 else up, g.vel.Z * 0.55)
 					if up < 4 and not g.landedAt then
 						g.landedAt = g.age
+						local rarity = RARITY[g.worth]
+						if rarity.beam then
+							g.beamHost = lootBeam(rarity.color, 3 + g.worth * 0.2)
+						end
 					end
 				end
 			else
 				-- magnet: speeds up towards you
 				g.trail.Enabled = true
+				if g.beamHost then
+					g.beamHost:Destroy()
+					g.beamHost = nil
+				end
 				local d = root.Position - g.pos
 				g.speed = math.min(g.speed + 140 * dt, 100)
 				if d.Magnitude < 2 or d.Magnitude < g.speed * dt then
@@ -443,6 +546,9 @@ function CollectBurst.drop(origin, value, opts)
 				end
 			end
 
+			if g.beamHost then
+				g.beamHost.CFrame = CFrame.new(g.pos - Vector3.new(0, g.r, 0))
+			end
 			-- once it's settled it floats up off the ground and bobs until it gets pulled in
 			local bob = if g.landedAt and not g.trail.Enabled then 0.15 * (1 - math.cos((g.age - g.landedAt) * 7)) else 0
 			g.model:PivotTo(CFrame.new(g.pos + Vector3.new(0, bob, 0)) * CFrame.Angles(g.tilt.X, g.age * (g.spin + extraSpin), g.tilt.Z))

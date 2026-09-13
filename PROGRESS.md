@@ -49,3 +49,9 @@ the rock takes three hits now instead of one click. the first two give a softer 
 chips, a puff of rock dust and the little bit of amethyst all come off the spot you actually clicked now, flying out from that face, instead of popping out of random places on top. the last hit throws a bigger slower cloud as it crumbles. dust uses roblox's own smoke texture with no glow so it stays dust in the dark
 
 <img src="progress/08-hit-where-you-click.gif" width="720" alt="hitting different sides of the ore, dust and chips coming off where it's hit">
+
+### 09 · weak point, hit numbers, loot beams
+
+three fortnite-ish bits at once. a glowing cyan weak point sits on the rock facing you and jumps somewhere new after every hit, hitting it is a crit worth 3x with a sharper tink, more chips and dust and a harder wobble. every hit pops a chunky number, white normally, cyan on a crit, gold on the break. and the drops roll rarity now, green blue purple and the odd gold legendary, and anything above common stands a beam of light up off the ground until you pull it in
+
+<img src="progress/09-weak-point-loot.gif" width="720" alt="hitting the weak point for crits, numbers popping and loot beams on the ground">
