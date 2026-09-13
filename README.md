@@ -2,7 +2,7 @@
 
 the "ore breaks and flies into your counter" effect for roblox. the rock crumbles, gems bounce out, get pulled into you and fly into the counter.
 
-<img src="progress/10-sharper-rock-variants.gif" width="720" alt="breaking different rock variants, crit streak x4, amethyst and loot beams everywhere">
+<img src="progress/12-ore-types.gif" width="720" alt="mining coal, iron, gold and diamond rocks, each ore gets its own row in the resource list">
 
 `rojo serve` or paste src/CollectBurst.luau into a ModuleScript in ReplicatedStorage and src/Demo.client.luau into a LocalScript in StarterPlayerScripts, then hit play and hit the rock a few times. src/Scene.server.luau is optional, put it in ServerScriptService for the cave set in the gif
 
@@ -14,6 +14,6 @@ to use your own stuff make a folder `CollectBurstAssets` in ReplicatedStorage. e
 - `Pickup` and `Break` sounds
 - `Icon` a decal, if you'd rather have a flat icon than the 3D gem
 
-the rock, crystals, gem and rubble in the gif are in `assets/collect_burst_assets.fbx`. import it with File > Import 3D, then run `tools/roblox/import_setup.luau` in the command bar and it sorts everything into `CollectBurstAssets`. `tools/blender` has the scripts that made them, see `assets/CREDITS.md`
+the rock, crystals, gem and rubble in the gif are in `assets/collect_burst_assets.fbx`. import it with File > Import 3D, then run `tools/roblox/import_setup.luau` in the command bar and it sorts everything into `CollectBurstAssets`. the coal, iron, gold and diamond clusters are in `assets/ores.fbx`, import that the same way and run `tools/roblox/import_ores_setup.luau`. `tools/blender` has the scripts that made all of it, see `assets/CREDITS.md`
 
 wip, see [PROGRESS.md](PROGRESS.md) for how it got here
