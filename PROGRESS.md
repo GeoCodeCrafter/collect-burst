@@ -55,3 +55,7 @@ chips, a puff of rock dust and the little bit of amethyst all come off the spot 
 three fortnite-ish bits at once. a glowing cyan weak point sits on the rock facing you and jumps somewhere new after every hit, hitting it is a crit worth 3x with a sharper tink, more chips and dust and a harder wobble. every hit pops a chunky number, white normally, cyan on a crit, gold on the break. and the drops roll rarity now, green blue purple and the odd gold legendary, and anything above common stands a beam of light up off the ground until you pull it in
 
 <img src="progress/09-weak-point-loot.gif" width="720" alt="hitting the weak point for crits, numbers popping and loot beams on the ground">
+
+### 10 · crit streak
+
+weak-point hits in a row stack a multiplier, x2 x3 up to x4, shown under the counter and carried from one rock to the next. any normal hit breaks it and the label drops away. the crit ding climbs in pitch as the streak goes up

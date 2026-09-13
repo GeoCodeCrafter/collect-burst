@@ -147,6 +147,49 @@ popupStroke.Thickness = 2
 popupStroke.Transparency = 1
 local popupScale = Instance.new("UIScale", popup)
 
+-- crit streak: weak-point hits in a row stack a multiplier (x2, x3, up to x4), any normal hit resets it.
+-- it carries over from one rock to the next
+local combo = 0
+local comboLabel = Instance.new("TextLabel")
+comboLabel.AnchorPoint = Vector2.new(1, 0)
+comboLabel.Position = UDim2.new(1, -36, 0, 150)
+comboLabel.Size = UDim2.fromOffset(220, 34)
+comboLabel.BackgroundTransparency = 1
+comboLabel.FontFace = Font.fromEnum(Enum.Font.LuckiestGuy)
+comboLabel.TextSize = 30
+comboLabel.TextColor3 = CRIT_COLOR
+comboLabel.TextXAlignment = Enum.TextXAlignment.Right
+comboLabel.Rotation = -4
+comboLabel.TextTransparency = 1
+comboLabel.Text = ""
+comboLabel.Parent = gui
+local comboStroke = Instance.new("UIStroke", comboLabel)
+comboStroke.Thickness = 3
+comboStroke.Color = Color3.fromRGB(20, 14, 30)
+comboStroke.Transparency = 1
+local comboScale = Instance.new("UIScale", comboLabel)
+
+local function comboMult()
+	return math.clamp(combo, 1, 4)
+end
+
+local function updateCombo()
+	if combo >= 2 then
+		-- streak going up: pops in big and settles
+		comboLabel.Text = "CRIT x" .. comboMult()
+		comboLabel.TextTransparency = 0
+		comboStroke.Transparency = 0
+		comboScale.Scale = 1.5
+		TweenService:Create(comboScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	elseif comboLabel.TextTransparency < 1 then
+		-- streak broken: drops away and fades
+		local out = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		TweenService:Create(comboLabel, out, { TextTransparency = 1 }):Play()
+		TweenService:Create(comboStroke, out, { Transparency = 1 }):Play()
+		TweenService:Create(comboScale, out, { Scale = 0.7 }):Play()
+	end
+end
+
 local total, shown, haul = 0, 0, 0
 local fades = {}
 local back = TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -382,6 +425,9 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		local weak = ore:FindFirstChild("WeakPoint")
 		local core = weak and weak:FindFirstChild("Core")
 		local crit = core ~= nil and (hit.Instance:IsDescendantOf(weak) or (hit.Position - core.Position).Magnitude < core.Size.Y * 0.8)
+		combo = if crit then combo + 1 else 0
+		updateCombo()
+		local mult = if crit then comboMult() else 1
 
 		if hitsLeft > 1 then
 			-- an early hit: a tink, the rock wobbles, chips and dust and a little amethyst come off where you hit
@@ -401,9 +447,10 @@ UserInputService.InputBegan:Connect(function(input, processed)
 				Debris:AddItem(s, 3)
 			end
 			if crit then
-				play(pickup, 1.8)
+				-- the ding climbs with the streak
+			play(pickup, 1.8 + 0.12 * math.min(combo, 6))
 			end
-			local value = HIT_VALUE * (if crit then CRIT_BONUS else 1)
+			local value = HIT_VALUE * (if crit then CRIT_BONUS else 1) * mult
 			CollectBurst.hit(ore, asset("Chunk"), hit.Position, hit.Normal, if crit then 2 else 1)
 			spill(value, hit.Position + hit.Normal * 0.6)
 			CollectBurst.number(hit.Position + hit.Normal * 1.2, "+" .. value, if crit then CRIT_COLOR else Color3.new(1, 1, 1), crit)
@@ -418,10 +465,11 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		end
 
 		busy = true
-		local value = (ORE_VALUE - HIT_VALUE * (HITS - 1)) * (if crit then 2 else 1)
+		local value = (ORE_VALUE - HIT_VALUE * (HITS - 1)) * (if crit then 2 else 1) * mult
 		play(asset("Break"), 1)
 		if crit then
-			play(pickup, 1.8)
+			-- the ding climbs with the streak
+			play(pickup, 1.8 + 0.12 * math.min(combo, 6))
 		end
 		CollectBurst.number(hit.Position + hit.Normal * 1.2, "+" .. value, if crit then CRIT_COLOR else Color3.fromRGB(255, 226, 110), true)
 		CollectBurst.crumble(ore, asset("Chunk"), function()
