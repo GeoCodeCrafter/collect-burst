@@ -5,9 +5,10 @@ local TweenService = game:GetService("TweenService")
 local CollectBurst = {}
 
 local GRAVITY = Vector3.new(0, -80, 0)
--- how big a gem is compared to the template, by what it's worth
+local GEM_SIZE = 1.2
+-- how big a gem is by what it's worth
 local WORTH_SCALE = { [1] = 0.75, [2] = 1, [5] = 1.35 }
-local ICON_PX = { [1] = 18, [2] = 22, [5] = 30 }
+local ICON_PX = { [1] = 22, [2] = 28, [5] = 36 }
 
 local fx = Instance.new("Folder")
 fx.Name = "CollectBurstFx"
@@ -50,17 +51,45 @@ function CollectBurst.asModel(template)
 	return model
 end
 
--- grows a model in from nothing with a little overshoot
+-- store assets come in at any size, this makes the biggest side `size` studs
+function CollectBurst.fit(model, size)
+	local _, s = model:GetBoundingBox()
+	model:ScaleTo(model:GetScale() * size / math.max(s.X, s.Y, s.Z))
+end
+
+-- a ViewportFrame with the model in it, lit and angled so you see the facets. used for the counter
+-- icon and the pieces flying into it, so they're the actual gem instead of a flat picture
+function CollectBurst.icon3d(template)
+	local vp = Instance.new("ViewportFrame")
+	vp.BackgroundTransparency = 1
+	vp.Ambient = Color3.fromRGB(190, 190, 200)
+	vp.LightColor = Color3.new(1, 1, 1)
+	vp.LightDirection = Vector3.new(-1, -1, -1)
+	local model = CollectBurst.asModel(template)
+	model:PivotTo(CFrame.Angles(math.rad(20), math.rad(30), 0))
+	local cf, size = model:GetBoundingBox()
+	model.Parent = vp
+	local cam = Instance.new("Camera")
+	cam.FieldOfView = 30
+	local dist = math.max(size.X, size.Y, size.Z) / 2 / math.tan(math.rad(15)) * 1.15
+	cam.CFrame = CFrame.lookAt(cf.Position + Vector3.new(0, 0, dist), cf.Position)
+	cam.Parent = vp
+	vp.CurrentCamera = cam
+	return vp
+end
+
+-- grows a model in from nothing with a little overshoot, back to whatever scale it had
 function CollectBurst.popIn(model, duration)
 	duration = duration or 0.35
+	local base = model:GetScale()
 	local t = 0
 	local conn
-	model:ScaleTo(0.01)
+	model:ScaleTo(base * 0.01)
 	conn = RunService.RenderStepped:Connect(function(dt)
 		t = math.min(t + dt / duration, 1)
 		-- back-out: shoots past 1 and settles
 		local s = 1 + 2.7 * (t - 1) ^ 3 + 1.7 * (t - 1) ^ 2
-		model:ScaleTo(math.max(0.01, s))
+		model:ScaleTo(base * math.max(0.01, s))
 		if t >= 1 then
 			conn:Disconnect()
 		end
@@ -68,17 +97,37 @@ function CollectBurst.popIn(model, duration)
 end
 
 -- the rock squashes a touch, then shrinks away while chunks of it tumble onto the ground and fade.
--- `chunk` is optional, a BasePart to use for the bits. calls `onDone` once the rock is gone
+-- `chunk` is optional: a part, or a model/folder of rocks to pick from at random. calls `onDone`
+-- once the rock is gone
 function CollectBurst.crumble(model, chunk, onDone)
 	local cf, size = model:GetBoundingBox()
-	for _ = 1, 6 do
+	local sources = {}
+	if chunk then
+		if chunk:IsA("BasePart") then
+			sources = { chunk }
+		else
+			for _, d in chunk:GetDescendants() do
+				if d:IsA("BasePart") then
+					table.insert(sources, d)
+				end
+			end
+		end
+	end
+
+	for _ = 1, 7 do
 		local c
-		if chunk then
-			c = (if chunk:IsA("BasePart") then chunk else chunk:FindFirstChildWhichIsA("BasePart", true)):Clone()
-			c.Size *= 0.7 + math.random() * 0.5
+		local target = 0.5 + math.random() * 0.6
+		if #sources > 0 then
+			c = sources[math.random(#sources)]:Clone()
+			for _, k in c:GetChildren() do
+				if not k:IsA("SurfaceAppearance") then
+					k:Destroy()
+				end
+			end
+			c.Size *= target / math.max(c.Size.X, c.Size.Y, c.Size.Z)
 		else
 			c = Instance.new("Part")
-			c.Size = Vector3.one * (0.5 + math.random() * 0.6)
+			c.Size = Vector3.one * target
 			c.Material = Enum.Material.Slate
 			c.Color = Color3.fromRGB(95, 90, 88)
 		end
@@ -100,12 +149,13 @@ function CollectBurst.crumble(model, chunk, onDone)
 		end)
 	end
 
+	local base = model:GetScale()
 	local t = 0
 	local conn
 	conn = RunService.RenderStepped:Connect(function(dt)
 		t = math.min(t + dt / 0.16, 1)
 		local s = if t < 0.35 then 1 - 0.08 * t / 0.35 else 0.92 * (1 - (t - 0.35) / 0.65)
-		model:ScaleTo(math.max(0.01, s))
+		model:ScaleTo(base * math.max(0.01, s))
 		if t >= 1 then
 			conn:Disconnect()
 			model:Destroy()
@@ -148,7 +198,7 @@ end
 -- `opts.collector()` returns (usually the player's root part). when a gem reaches it, it jumps onto
 -- the screen and flies into `opts.target` (a GuiObject).
 -- opts: target, collector, color, gem (template, optional), icon (image id, optional),
---       onArrive(worth, n, total) runs as each one lands on the counter
+--       iconModel (template to show as a 3D icon, optional), onArrive(worth, n, total)
 function CollectBurst.drop(origin, value, opts)
 	local camera = workspace.CurrentCamera
 	local gui = opts.target:FindFirstAncestorOfClass("ScreenGui")
@@ -167,7 +217,7 @@ function CollectBurst.drop(origin, value, opts)
 				d.CanTouch = false
 			end
 		end
-		model:ScaleTo(WORTH_SCALE[worth])
+		CollectBurst.fit(model, GEM_SIZE * WORTH_SCALE[worth])
 		local _, size = model:GetBoundingBox()
 		model.Parent = fx
 		table.insert(gems, {
@@ -206,6 +256,7 @@ function CollectBurst.drop(origin, value, opts)
 				local s = ICON_PX[g.worth] * (1.2 - 0.4 * k)
 				g.icon.Position = UDim2.fromOffset(at.X, at.Y)
 				g.icon.Size = UDim2.fromOffset(s, s)
+				g.icon.Rotation += 360 * dt
 				if g.t >= 1 then
 					g.icon:Destroy()
 					g.done = true
@@ -234,7 +285,9 @@ function CollectBurst.drop(origin, value, opts)
 					-- picked up: swap the gem for a 2D piece at the same spot on screen
 					local screen = camera:WorldToViewportPoint(g.pos)
 					local icon
-					if opts.icon then
+					if opts.iconModel then
+						icon = CollectBurst.icon3d(opts.iconModel)
+					elseif opts.icon then
 						icon = Instance.new("ImageLabel")
 						icon.Image = opts.icon
 						icon.BackgroundTransparency = 1
