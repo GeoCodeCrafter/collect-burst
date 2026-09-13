@@ -43,3 +43,9 @@ gave it a proper set to show it off: a cave carved out of terrain with a shaft i
 the rock takes three hits now instead of one click. the first two give a softer tink, the rock dips and springs back, a few chips knock off it and a little amethyst spills out. third hit breaks it and drops the rest. three little marks over the rock show how many hits are left. also took the lamp posts out, the warm light on the rock is just a hidden light now
 
 <img src="progress/07-multi-hit.gif" width="720" alt="hitting the ore three times, chips and amethyst coming off each hit">
+
+### 08 · hits land where you click
+
+chips, a puff of rock dust and the little bit of amethyst all come off the spot you actually clicked now, flying out from that face, instead of popping out of random places on top. the last hit throws a bigger slower cloud as it crumbles. dust uses roblox's own smoke texture with no glow so it stays dust in the dark
+
+<img src="progress/08-hit-where-you-click.gif" width="720" alt="hitting different sides of the ore, dust and chips coming off where it's hit">

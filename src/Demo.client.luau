@@ -334,8 +334,9 @@ UserInputService.InputBegan:Connect(function(input, processed)
 				s:Play()
 				Debris:AddItem(s, 3)
 			end
-			CollectBurst.hit(ore, asset("Chunk"))
-			spill(HIT_VALUE, at + Vector3.new(0, box.Y * 0.3, 0))
+			-- chips, dust and the amethyst all come off the spot you actually clicked
+			CollectBurst.hit(ore, asset("Chunk"), hit.Position, hit.Normal)
+			spill(HIT_VALUE, hit.Position + hit.Normal * 0.6)
 			-- a short gap between swings so spam-clicking doesn't skip the wobble
 			busy = true
 			task.delay(0.22, function()

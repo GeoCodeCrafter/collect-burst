@@ -15,6 +15,40 @@ local fx = Instance.new("Folder")
 fx.Name = "CollectBurstFx"
 fx.Parent = workspace
 
+-- a soft puff of rock dust where something hit. roblox ships the smoke texture. no light emission, so it
+-- stays dust in a dark scene instead of blooming into a glowing blob
+local function dustPuff(at, normal, count, scale)
+	local host = Instance.new("Part")
+	host.Anchored = true
+	host.CanCollide = false
+	host.CanQuery = false
+	host.CanTouch = false
+	host.Transparency = 1
+	host.Size = Vector3.one * 0.1
+	host.CFrame = CFrame.lookAt(at, at + normal) * CFrame.Angles(-math.pi / 2, 0, 0)
+	host.Parent = fx
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	e.Color = ColorSequence.new(Color3.fromRGB(138, 118, 102), Color3.fromRGB(92, 80, 72))
+	e.LightEmission = 0
+	e.LightInfluence = 1
+	e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(0.3, 0.6), NumberSequenceKeypoint.new(1, 1) })
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5 * scale), NumberSequenceKeypoint.new(1, 2.2 * scale) })
+	e.Lifetime = NumberRange.new(0.5, 0.9)
+	e.Speed = NumberRange.new(2 * scale, 5 * scale)
+	e.SpreadAngle = Vector2.new(40, 40)
+	e.Drag = 4
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-40, 40)
+	e.EmissionDirection = Enum.NormalId.Top
+	e.Rate = 0
+	e.Parent = host
+	e:Emit(count)
+	task.delay(1.5, function()
+		host:Destroy()
+	end)
+end
+
 local function bezier(a, b, c, t)
 	local u = 1 - t
 	return a * (u * u) + b * (2 * u * t) + c * (t * t)
@@ -102,6 +136,7 @@ end
 -- once the rock is gone
 function CollectBurst.crumble(model, chunk, onDone)
 	local cf, size = model:GetBoundingBox()
+	dustPuff(cf.Position, Vector3.yAxis, 18, 1.6)
 	local sources = {}
 	if chunk then
 		if chunk:IsA("BasePart") then
@@ -167,10 +202,15 @@ function CollectBurst.crumble(model, chunk, onDone)
 	end)
 end
 
--- one pick hit: the rock dips, springs back past its size and settles, and a few chips fly off it.
--- the wobble always settles back to the size it spawned at, even if you hit it again mid-wobble
-function CollectBurst.hit(model, chunk)
+-- one pick hit: the rock dips, springs back past its size and settles, and a few chips and some dust
+-- come off where it was hit. `at` and `normal` are that spot and the face's direction, from the click's
+-- raycast. leave them out and the chips come off the top. the wobble always settles back to the size it
+-- spawned at, even if you hit it again mid-wobble
+function CollectBurst.hit(model, chunk, at, normal)
 	local cf, size = model:GetBoundingBox()
+	at = at or (cf.Position + Vector3.new(0, size.Y * 0.35, 0))
+	normal = normal or Vector3.yAxis
+	dustPuff(at, normal, 10, 1)
 	local sources = {}
 	if chunk then
 		if chunk:IsA("BasePart") then
@@ -203,10 +243,11 @@ function CollectBurst.hit(model, chunk)
 		c.Anchored = false
 		c.CanCollide = true
 		c.CanTouch = false
-		-- chips come off the upper half, facing roughly towards whoever hit it doesn't matter much
-		c.CFrame = cf * CFrame.new((math.random() - 0.5) * size.X * 0.7, size.Y * (0.1 + math.random() * 0.3), (math.random() - 0.5) * size.Z * 0.7)
+		-- chips come off the spot that was hit and fly out from that face, with a bit of lift
+		c.CFrame = CFrame.new(at + normal * (c.Size.Y * 0.6)) * CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6)
 		c.Parent = fx
-		c.AssemblyLinearVelocity = Vector3.new(math.random() - 0.5, 0.7 + math.random() * 0.5, math.random() - 0.5) * 14
+		local spread = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 0.9
+		c.AssemblyLinearVelocity = (normal + spread + Vector3.new(0, 0.6, 0)).Unit * (11 + math.random() * 6)
 		c.AssemblyAngularVelocity = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 20
 		task.delay(0.7 + math.random() * 0.4, function()
 			local fade = TweenService:Create(c, TweenInfo.new(0.35), { Transparency = 1 })
