@@ -37,3 +37,9 @@ the store models looked cheap so i rebuilt everything. first try was a rock made
 gave it a proper set to show it off: a cave carved out of terrain with a shaft in the roof, amethyst growing out of the walls and two lanterns either side of the rock. the drops are chunks of the rock's own amethyst now instead of a cartoon cut gem, and they don't turn into flat squares any more, the actual crystal flies up into the counter and shrinks into it. counter lost its box too, it's just the amethyst, a caption and the number. two bugs on the way: the rock landed on the cave roof because it looked for the ground from the sky, and no wall crystals showed up because terrain isn't solid for a moment after you make it
 
 <img src="progress/06-crystal-cave.gif" width="720" alt="breaking the ore in the crystal cave, amethyst flying into the counter">
+
+### 07 · three hits
+
+the rock takes three hits now instead of one click. the first two give a softer tink, the rock dips and springs back, a few chips knock off it and a little amethyst spills out. third hit breaks it and drops the rest. three little marks over the rock show how many hits are left. also took the lamp posts out, the warm light on the rock is just a hidden light now
+
+<img src="progress/07-multi-hit.gif" width="720" alt="hitting the ore three times, chips and amethyst coming off each hit">

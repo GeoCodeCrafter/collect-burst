@@ -11,6 +11,9 @@ local CollectBurst = require(ReplicatedStorage:WaitForChild("CollectBurst"))
 local COLOR = Color3.fromRGB(170, 90, 255)
 local ORE_AT = Vector3.new(0, 0, -14)
 local ORE_VALUE = 30
+-- it takes a few hits: each early hit spills a little, the last one breaks it and drops the rest
+local HITS = 3
+local HIT_VALUE = 4
 local ROCK_SIZE = 4.5
 
 -- your assets go in ReplicatedStorage.CollectBurstAssets, all optional:
@@ -256,7 +259,33 @@ local function spawnOre()
 		glow.Shadows = false
 		glow.Parent = crystals
 	end
+	ore:SetAttribute("BaseScale", ore:GetScale())
+	ore:SetAttribute("Hits", HITS)
 	ore.Parent = workspace
+
+	-- hits left: three small marks above the rock, a spent one goes dim
+	local _, box = ore:GetBoundingBox()
+	local pips = Instance.new("BillboardGui")
+	pips.Name = "Pips"
+	pips.Size = UDim2.fromOffset(56, 8)
+	pips.StudsOffsetWorldSpace = Vector3.new(0, box.Y / 2 + 1.2, 0)
+	pips.LightInfluence = 0
+	pips.Parent = ore.PrimaryPart
+	local row = Instance.new("UIListLayout", pips)
+	row.FillDirection = Enum.FillDirection.Horizontal
+	row.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	row.Padding = UDim.new(0, 4)
+	for i = 1, HITS do
+		local pip = Instance.new("Frame")
+		pip.Name = "Pip" .. i
+		pip.Size = UDim2.fromOffset(14, 4)
+		pip.BackgroundColor3 = VIOLET
+		pip.BorderSizePixel = 0
+		pip.LayoutOrder = i
+		Instance.new("UICorner", pip).CornerRadius = UDim.new(1, 0)
+		pip.Parent = pips
+	end
+
 	CollectBurst.popIn(ore)
 	return ore
 end
@@ -273,22 +302,52 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	local ray = workspace.CurrentCamera:ViewportPointToRay(m.X, m.Y)
 	local hit = workspace:Raycast(ray.Origin, ray.Direction * 200)
 	if hit and hit.Instance:IsDescendantOf(ore) then
-		busy = true
-		local at = ore:GetBoundingBox().Position
-		play(asset("Break"), 1)
-		CollectBurst.crumble(ore, asset("Chunk"), function()
-			CollectBurst.drop(at, ORE_VALUE, {
+		local hitsLeft = ore:GetAttribute("Hits") or 1
+		local cf, box = ore:GetBoundingBox()
+		local at = cf.Position
+		local function spill(value, from)
+			CollectBurst.drop(from, value, {
 				target = icon,
 				color = COLOR,
 				gem = dropTemplate,
-				icon = iconImage,
-				iconModel = iconModel,
 				collector = function()
 					local character = Players.LocalPlayer.Character
 					return character and character:FindFirstChild("HumanoidRootPart")
 				end,
 				onArrive = arrive,
 			})
+		end
+
+		if hitsLeft > 1 then
+			-- an early hit: a softer, higher tink, the rock wobbles, a few chips and a little amethyst come off
+			ore:SetAttribute("Hits", hitsLeft - 1)
+			local pip = ore.PrimaryPart:FindFirstChild("Pips") and ore.PrimaryPart.Pips:FindFirstChild("Pip" .. hitsLeft)
+			if pip then
+				TweenService:Create(pip, TweenInfo.new(0.2), { BackgroundTransparency = 0.8 }):Play()
+			end
+			local tink = asset("Break")
+			if tink then
+				local s = tink:Clone()
+				s.Volume = tink.Volume * 0.55
+				s.PlaybackSpeed = 1.5 + math.random() * 0.15
+				s.Parent = SoundService
+				s:Play()
+				Debris:AddItem(s, 3)
+			end
+			CollectBurst.hit(ore, asset("Chunk"))
+			spill(HIT_VALUE, at + Vector3.new(0, box.Y * 0.3, 0))
+			-- a short gap between swings so spam-clicking doesn't skip the wobble
+			busy = true
+			task.delay(0.22, function()
+				busy = false
+			end)
+			return
+		end
+
+		busy = true
+		play(asset("Break"), 1)
+		CollectBurst.crumble(ore, asset("Chunk"), function()
+			spill(ORE_VALUE - HIT_VALUE * (HITS - 1), at)
 			task.delay(2.5, function()
 				ore = spawnOre()
 				busy = false

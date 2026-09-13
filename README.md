@@ -2,9 +2,9 @@
 
 the "ore breaks and flies into your counter" effect for roblox. the rock crumbles, gems bounce out, get pulled into you and fly into the counter.
 
-<img src="progress/06-crystal-cave.gif" width="720" alt="breaking the ore in the crystal cave, amethyst flying into the counter">
+<img src="progress/07-multi-hit.gif" width="720" alt="hitting the ore three times, chips and amethyst coming off each hit">
 
-`rojo serve` or paste src/CollectBurst.luau into a ModuleScript in ReplicatedStorage and src/Demo.client.luau into a LocalScript in StarterPlayerScripts, then hit play and click the rock. src/Scene.server.luau is optional, put it in ServerScriptService for the cave set in the gif
+`rojo serve` or paste src/CollectBurst.luau into a ModuleScript in ReplicatedStorage and src/Demo.client.luau into a LocalScript in StarterPlayerScripts, then hit play and hit the rock a few times. src/Scene.server.luau is optional, put it in ServerScriptService for the cave set in the gif
 
 to use your own stuff make a folder `CollectBurstAssets` in ReplicatedStorage. everything's optional, missing ones fall back to placeholders:
 

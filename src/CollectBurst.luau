@@ -167,6 +167,78 @@ function CollectBurst.crumble(model, chunk, onDone)
 	end)
 end
 
+-- one pick hit: the rock dips, springs back past its size and settles, and a few chips fly off it.
+-- the wobble always settles back to the size it spawned at, even if you hit it again mid-wobble
+function CollectBurst.hit(model, chunk)
+	local cf, size = model:GetBoundingBox()
+	local sources = {}
+	if chunk then
+		if chunk:IsA("BasePart") then
+			sources = { chunk }
+		else
+			for _, d in chunk:GetDescendants() do
+				if d:IsA("BasePart") then
+					table.insert(sources, d)
+				end
+			end
+		end
+	end
+	for _ = 1, 3 do
+		local target = 0.22 + math.random() * 0.25
+		local c
+		if #sources > 0 then
+			c = sources[math.random(#sources)]:Clone()
+			for _, k in c:GetChildren() do
+				if not k:IsA("SurfaceAppearance") then
+					k:Destroy()
+				end
+			end
+			c.Size *= target / math.max(c.Size.X, c.Size.Y, c.Size.Z)
+		else
+			c = Instance.new("Part")
+			c.Size = Vector3.one * target
+			c.Material = Enum.Material.Slate
+			c.Color = Color3.fromRGB(95, 90, 88)
+		end
+		c.Anchored = false
+		c.CanCollide = true
+		c.CanTouch = false
+		-- chips come off the upper half, facing roughly towards whoever hit it doesn't matter much
+		c.CFrame = cf * CFrame.new((math.random() - 0.5) * size.X * 0.7, size.Y * (0.1 + math.random() * 0.3), (math.random() - 0.5) * size.Z * 0.7)
+		c.Parent = fx
+		c.AssemblyLinearVelocity = Vector3.new(math.random() - 0.5, 0.7 + math.random() * 0.5, math.random() - 0.5) * 14
+		c.AssemblyAngularVelocity = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 20
+		task.delay(0.7 + math.random() * 0.4, function()
+			local fade = TweenService:Create(c, TweenInfo.new(0.35), { Transparency = 1 })
+			fade.Completed:Connect(function()
+				c:Destroy()
+			end)
+			fade:Play()
+		end)
+	end
+
+	local base = model:GetAttribute("BaseScale") or model:GetScale()
+	model:SetAttribute("BaseScale", base)
+	local token = (model:GetAttribute("HitToken") or 0) + 1
+	model:SetAttribute("HitToken", token)
+	local t = 0
+	local conn
+	conn = RunService.RenderStepped:Connect(function(dt)
+		-- a newer hit takes over the wobble, and a rock that's been broken stops here
+		if model:GetAttribute("HitToken") ~= token or not model.Parent then
+			conn:Disconnect()
+			return
+		end
+		t = math.min(t + dt / 0.3, 1)
+		-- dips straight away, springs back past its size, settles
+		model:ScaleTo(base * (1 - 0.07 * math.exp(-6 * t) * math.cos(t * 18)))
+		if t >= 1 then
+			model:ScaleTo(base)
+			conn:Disconnect()
+		end
+	end)
+end
+
 local function placeholderGem(color)
 	local p = Instance.new("Part")
 	p.Size = Vector3.new(0.9, 0.9, 0.9)

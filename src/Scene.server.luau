@@ -142,30 +142,21 @@ if crystalTemplate then
 	end
 end
 
--- ---- two lanterns on wooden posts either side of the ore: the warm key light
-local function part(props)
-	local p = Instance.new("Part")
-	p.Anchored = true
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
-	for k, v in props do
-		p[k] = v
-	end
-	p.Parent = set
-	return p
-end
-for _, side in { -1, 1 } do
-	local at = ORE_AT + Vector3.new(side * 6.5, 0, 2.5)
-	part({ Size = Vector3.new(0.5, 6, 0.5), CFrame = CFrame.new(at + Vector3.new(0, 3, 0)), Material = Enum.Material.WoodPlanks, Color = Color3.fromRGB(92, 64, 42) })
-	part({ Size = Vector3.new(1.6, 0.35, 0.35), CFrame = CFrame.new(at + Vector3.new(-side * 0.6, 5.8, 0)), Material = Enum.Material.WoodPlanks, Color = Color3.fromRGB(92, 64, 42) })
-	local hang = at + Vector3.new(-side * 1.2, 5.0, 0)
-	part({ Size = Vector3.new(0.7, 0.12, 0.7), CFrame = CFrame.new(hang + Vector3.new(0, 0.55, 0)), Material = Enum.Material.Metal, Color = Color3.fromRGB(40, 36, 34) })
-	part({ Size = Vector3.new(0.7, 0.12, 0.7), CFrame = CFrame.new(hang - Vector3.new(0, 0.55, 0)), Material = Enum.Material.Metal, Color = Color3.fromRGB(40, 36, 34) })
-	local glass = part({ Size = Vector3.new(0.5, 0.95, 0.5), CFrame = CFrame.new(hang), Material = Enum.Material.Neon, Color = Color3.fromRGB(255, 170, 80), CanCollide = false })
-	local light = Instance.new("PointLight")
-	light.Color = Color3.fromRGB(255, 176, 100)
-	light.Brightness = 2.2
-	light.Range = 20
-	light.Shadows = true
-	light.Parent = glass
-end
+-- ---- warm key light on the ore. the lantern posts got in the way, so it's just the light now, hanging
+-- invisibly above and in front of the rock
+local key = Instance.new("Part")
+key.Name = "KeyLight"
+key.Anchored = true
+key.CanCollide = false
+key.CanQuery = false
+key.CanTouch = false
+key.Transparency = 1
+key.Size = Vector3.one * 0.2
+key.CFrame = CFrame.new(ORE_AT + Vector3.new(-3, 9, 5))
+key.Parent = set
+local light = Instance.new("PointLight")
+light.Color = Color3.fromRGB(255, 176, 100)
+light.Brightness = 2.4
+light.Range = 22
+light.Shadows = true
+light.Parent = key
